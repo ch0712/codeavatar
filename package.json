@@ -1,0 +1,20 @@
+{
+  "name": "codeavatar",
+  "version": "0.1.0",
+  "private": true,
+  "description": "纯代码驱动角色：设定稿 → 描摹分层矢量角色 → 表情/动作参数化 → 口播视频输出。不依赖任何真人素材、不依赖 AI 换脸/口型驱动模型。",
+  "workspaces": [
+    "packages/*",
+    "studio"
+  ],
+  "scripts": {
+    "check:boundaries": "bash packages/anchor-core/scripts/check-boundaries.sh",
+    "still": "cd studio && npx remotion still",
+    "render": "cd studio && npx remotion render",
+    "studio": "cd studio && npx remotion studio"
+  },
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "mediabunny": "^1.64.0"
+  }
+}

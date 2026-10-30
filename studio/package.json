@@ -1,0 +1,23 @@
+{
+  "name": "@anchor/studio",
+  "version": "0.1.0",
+  "private": true,
+  "description": "口播视频输出：角色 + 表演数据 → 成片（画面/口型/字幕/底乐）",
+  "scripts": {
+    "studio": "remotion studio",
+    "still": "remotion still",
+    "render": "remotion render",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@anchor/core": "0.1.0",
+    "@remotion/cli": "4.0.537",
+    "react": "19.0.0",
+    "react-dom": "19.0.0",
+    "remotion": "4.0.537"
+  },
+  "devDependencies": {
+    "@types/react": "19.0.0",
+    "typescript": "5.6.3"
+  }
+}

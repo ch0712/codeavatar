@@ -1,0 +1,6 @@
+node_modules/
+out/
+*.log
+.DS_Store
+packages/anchor-core/src/chars/*.bak-*
+packages/anchor-core/src/chars/*.prespeck

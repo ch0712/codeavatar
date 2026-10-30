@@ -1,0 +1,18 @@
+{
+  "name": "@anchor/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "纯代码驱动数字人能力单元：Pose 契约 + 描摹角色参数化渲染器 + 语音表演驱动",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "peerDependencies": {
+    "react": ">=18",
+    "remotion": ">=4"
+  },
+  "scripts": {
+    "check": "bash scripts/check-boundaries.sh"
+  }
+}
