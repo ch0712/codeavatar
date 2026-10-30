@@ -74,3 +74,8 @@ python3 tools/codeavatar.py list
 本仓从 autocut（`refs/dhk` 的 anchor-code 子系统）剥离而来。
 剥离时的验收标准是：两个消费方（dhk 片子 / film 免费通道）改造前后渲染静帧 **逐字节相同**。
 详见 `docs/CHANGELOG-char-automation.md`。
+
+## 镜像
+
+- Gitee（主）: https://gitee.com/xumijie/codeavatar
+- GitHub（镜像，PUBLIC）: https://github.com/ch0712/codeavatar
