@@ -32,16 +32,18 @@ else
   echo "✅ 判据3：未引用任何消费方路径"
 fi
 
-# 4) 角色数据只能有一份：全工作区扫，只允许 packages/anchor-core/src/chars 下那一份
-#    （写死 autocut 是旧版做法 —— 能力仓独立后必须扫 workspace 全域，否则永远报 0 份/漏掉副本）
-WS=/H/.hermes/workspace
-dup=$(cd "$WS" && find . -path '*/node_modules' -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules | wc -l)
+# 4) 角色数据只能有一份
+#    扫描范围默认 = 仓库根；需要连消费方一起查时用 CODEAVATAR_SCAN 指过去。
+#    （原版写死 /H/.hermes/workspace：在别人的克隆里毫无意义，还会因为扫到别人的目录而假绿）
+ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
+SCAN=${CODEAVATAR_SCAN:-$ROOT}
+dup=$(cd "$SCAN" && find . -path '*/node_modules' -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules | wc -l)
 if [ "$dup" -ne 1 ]; then
-  echo "❌ 判据4：no4.json 出现 $dup 份（单一事实源被破坏）"
-  (cd "$WS" && find . -path '*/node_modules' -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules)
+  echo "❌ 判据4：no4.json 出现 $dup 份（单一事实源被破坏）· 扫描范围 $SCAN"
+  (cd "$SCAN" && find . -path '*/node_modules' -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules)
   fail=1
 else
-  echo "✅ 判据4：角色数据唯一一份"
+  echo "✅ 判据4：角色数据唯一一份（扫描 $SCAN）"
 fi
 
 exit $fail
