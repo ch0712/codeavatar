@@ -2,7 +2,10 @@
 # @anchor/core 边界机检 —— 「这个包随时可以被提走」的三条判据。
 # 任何一条失败 = 包已经和 autocut 缠在一起，必须先修再提交。
 set -uo pipefail
-cd "$(dirname "$0")/.."
+# 先取脚本自己的绝对目录（后面会 cd，再用 $0 算根就错位了 —— 实测踩过一次）
+_SELF=$(cd -P "$(dirname "$0")" && pwd)
+ROOT=$(cd -P "$_SELF/../../.." && pwd)
+cd "$_SELF/.."
 fail=0
 
 # 1) core 内不许出现上级目录引用（只许 './' 与包名）
@@ -35,7 +38,6 @@ fi
 # 4) 角色数据只能有一份
 #    扫描范围默认 = 仓库根；需要连消费方一起查时用 CODEAVATAR_SCAN 指过去。
 #    （原版写死 /H/.hermes/workspace：在别人的克隆里毫无意义，还会因为扫到别人的目录而假绿）
-ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 SCAN=${CODEAVATAR_SCAN:-$ROOT}
 dup=$(cd "$SCAN" && find . -path '*/node_modules' -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules | wc -l)
 if [ "$dup" -ne 1 ]; then
