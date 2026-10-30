@@ -32,11 +32,13 @@ else
   echo "✅ 判据3：未引用任何消费方路径"
 fi
 
-# 4) 角色数据只能有一份（chars/*.json 之外不许再出现同名副本）
-dup=$(cd /H/.hermes/workspace/autocut && find . -path ./node_modules -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules | wc -l)
+# 4) 角色数据只能有一份：全工作区扫，只允许 packages/anchor-core/src/chars 下那一份
+#    （写死 autocut 是旧版做法 —— 能力仓独立后必须扫 workspace 全域，否则永远报 0 份/漏掉副本）
+WS=/H/.hermes/workspace
+dup=$(cd "$WS" && find . -path '*/node_modules' -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules | wc -l)
 if [ "$dup" -ne 1 ]; then
   echo "❌ 判据4：no4.json 出现 $dup 份（单一事实源被破坏）"
-  (cd /H/.hermes/workspace/autocut && find . -path ./node_modules -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules)
+  (cd "$WS" && find . -path '*/node_modules' -prune -o -name 'no4.json' -print 2>/dev/null | grep -v node_modules)
   fail=1
 else
   echo "✅ 判据4：角色数据唯一一份"
