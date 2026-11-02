@@ -26,6 +26,18 @@ jobs:
       - run: python -m pip install -r requirements.txt
       - run: python tools/codeavatar.py --help
       - run: python tools/codeavatar.py list
+      - run: python tools/codeavatar.py gate examples/sheet-S5.png
       - run: python packages/anchor-core/scripts/check_boundaries.py
       - run: npm run typecheck --workspace @anchor/studio
-      - run: npm run still -- --help
+      # 真实渲染验收：六格口型表（含机检）+ 完整短视频导出 + npm 路线静帧
+      - run: python tools/codeavatar.py grid no4
+      - run: python tools/codeavatar.py render no4 -o out/clip.mp4 --props examples/perf.json
+      - run: npm run still -- ../out/npm-still.png
+      - run: npm run render -- ../out/npm-clip.mp4 --props=../examples/perf.json
+      - run: python -c "import os,sys; bad=[p for p in ['out/clip.mp4','out/npm-clip.mp4','out/no4-grid.png','out/npm-still.png'] if not os.path.isfile(p) or os.path.getsize(p)<10000]; sys.exit('产物缺失或过小: %s' % bad) if bad else print('产物非空校验 PASS')"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: render-${{ matrix.os }}
+          path: |
+            out/clip.mp4
+            out/no4-grid.png

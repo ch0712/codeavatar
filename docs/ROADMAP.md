@@ -211,7 +211,16 @@ Linux 和 Windows 都是一等开发、创作、CI 和发布平台。任何核�
   修复：`Presenter.tsx` full 布局改为按画幅自适应缩放 `min(W/1360, H/2048)`，
   `anchorY` 语义改为「角色画布中心的纵向位置」（默认 0.42→0.45）。
   验证：重渲 `out/clip.mp4`，抽帧 n=5/20 整头含嘴完整入画，眉/眼/口型随 perf 变化。
-- **P1 · 根 package.json scripts 依赖全局 remotion**：`still/render/studio` 直接调 `remotion`
-  （假定 PATH 里有），与 CLI 的本地 `node_modules` 路线不一致；CI 的 `npm run still -- --help` 不可靠。
-- **P1 · CI 尚未跑真实渲染**：cross-platform.yml 只有 help/list/boundaries/typecheck，
-  验收清单"两平台完整短视频导出"未满足（本机 Windows 已补证，Linux 端待 CI）。
+- ~~**P1 · 根 package.json scripts 依赖全局 remotion**~~ **已修复（同日）**：
+  `still/render/studio` 改为 `cd studio && remotion ...`（npm 自动注入 `node_modules/.bin`，
+  版本由 package-lock 锁定）；浏览器解析下沉到 `studio/remotion.config.ts`
+  （`CODEAVATAR_BROWSER` → 本地缓存 → 系统 Chrome/Edge，找不到打印告警走默认下载），
+  Python CLI 与 npm 两条路线都不再在线挂起。
+  另修同源问题：`--props` 直传裸 Perf 时（npm 入口）到不了 `props.perf`，
+  `Presenter`/`calculateMetadata` 增加 `asPerf` 归一化。
+  验证：`npm run still` 静帧成功；`npm run render` 1.0s/30 帧全渲染（修复前 3.0s 静态）；
+  Python CLI 渲染回归 1.0s 不变；tsc 无错误。
+- ~~**P1 · CI 尚未跑真实渲染**~~ **已修复（同日）**：cross-platform.yml 增加
+  gate / grid no4（含口型机检）/ 完整短视频导出（Python CLI 与 npm 两条路线）/ npm 静帧 /
+  产物非空断言 / artifact 上传；移除不可靠的 `npm run still -- --help`。
+  Windows 本机已按 CI 步骤逐条补证；两平台矩阵结果待推送后由 CI 确认。

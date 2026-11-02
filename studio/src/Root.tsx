@@ -1,14 +1,15 @@
 import React from 'react';
 import { CalculateMetadataFunction, Composition } from 'remotion';
-import { Presenter } from './Presenter';
+import { Presenter, asPerf } from './Presenter';
 import type { PresenterProps } from './Presenter';
 import { VisemeGrid } from './VisemeGrid';
 
 const FPS = 30;
 
 const calculateTalkClipMetadata: CalculateMetadataFunction<PresenterProps> = ({ props }) => {
-  const durationInFrames = props.perf?.frames.length ?? 90;
-  const fps = props.perf?.fps ?? FPS;
+  const perfData = props.perf ?? asPerf(props);
+  const durationInFrames = perfData?.frames.length ?? 90;
+  const fps = perfData?.fps ?? FPS;
   return {
     durationInFrames: Math.max(1, durationInFrames),
     fps: Number.isFinite(fps) && fps > 0 ? fps : FPS,

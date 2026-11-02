@@ -9,9 +9,9 @@
   ],
   "scripts": {
     "check:boundaries": "python packages/anchor-core/scripts/check_boundaries.py",
-    "still": "remotion still studio/src/index.ts --config studio/remotion.config.ts",
-    "render": "remotion render studio/src/index.ts --config studio/remotion.config.ts",
-    "studio": "remotion studio studio/src/index.ts --config studio/remotion.config.ts"
+    "still": "cd studio && remotion still src/index.ts CharStill",
+    "render": "cd studio && remotion render src/index.ts TalkClip",
+    "studio": "cd studio && remotion studio src/index.ts"
   },
   "license": "UNLICENSED"
 }

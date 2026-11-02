@@ -38,15 +38,25 @@ const PipClip: React.FC<{ children: React.ReactNode; size: number }> = ({ childr
   </div>
 );
 
-export const Presenter: React.FC<PresenterProps> = ({
-  char,
-  perf,
-  layout = 'full',
-  bg = '#141117',
-  captions,
-  captionStyle,
-  anchorY = 0.45,
-}) => {
+/** 裸 Perf 直传（--props=perf.json，无 perf 键、有 frames 数组）时归一化，
+ * 避免静默退化成静态中性脸（E1-013 的 npm 入口变体）。 */
+export const asPerf = (p: unknown): Perf | undefined => {
+  if (p && typeof p === 'object' && Array.isArray((p as Perf).frames)) {
+    return p as Perf;
+  }
+  return undefined;
+};
+
+export const Presenter: React.FC<PresenterProps> = (allProps) => {
+  const {
+    char,
+    layout = 'full',
+    bg = '#141117',
+    captions,
+    captionStyle,
+    anchorY = 0.45,
+  } = allProps;
+  const perf = allProps.perf ?? asPerf(allProps);
   const frame = useCurrentFrameSafe();
   const { fps, width: vw, height: vh } = useVideoConfigSafe();
   const labels = perf ? moodLabels(perf) : [];
