@@ -61,6 +61,13 @@ python tools/codeavatar.py grid no4
 # 4) 口播成片
 python tools/codeavatar.py render no4 -o out/clip.mp4 --props examples/perf.json
 
+# 4b) 文本直接成片（确定性合成）
+python tools/codeavatar.py say no4 "da4 jia1 hao3! jin1 tian1 jiang3 kou3 xing2." \
+    -o out/talk.mp4 --pinyin --coarticulate   # 拼音：音素视觉对应
+python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
+    -o out/talk.mp4                            # 中文：节奏估计（诚实降级，
+                                               # perf.meta.mode=estimated，口型不保证对应发音）
+
 # 5) 有哪些角色
 python tools/codeavatar.py list
 ```

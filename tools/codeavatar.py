@@ -179,6 +179,37 @@ def cmd_render(a):
     print(f'  成片: {out}')
 
 
+def cmd_say(a):
+    """文本 → 表演合成 → 口播成片（阶段 3：确定性合成 + 诚实降级）。"""
+    req = json.dumps({'text': a.text, 'pinyin': a.pinyin, 'sps': a.sps},
+                     ensure_ascii=False)
+    r = subprocess.run([sys.executable, TOOLS / 'say_perf.py'], input=req,
+                       capture_output=True, text=True, encoding='utf-8', cwd=ROOT)
+    if r.returncode != 0:
+        sys.stderr.write(r.stderr)
+        raise SystemExit(f'表演合成失败（exit {r.returncode}）')
+    perf = json.loads(r.stdout)
+    meta = perf.get('meta') or {}
+    if meta.get('mode') == 'estimated':
+        unk = ''.join(meta.get('unknownChars') or [])
+        print('  ⚠ estimated 模式：中文逐字节奏估计，口型不保证对应发音；'
+              f'需音素对应请用 --pinyin 传拼音。未知字符：{unk or "无"}')
+    else:
+        print(f'  pinyin 模式：{len(perf["frames"])} 帧 / {perf["duration"]:.2f}s（音素视觉对应）')
+    if a.coarticulate:
+        perf['coarticulation'] = True
+    props = {'char': a.key, 'layout': a.layout, 'bg': a.bg, 'perf': perf}
+    out = Path(a.out).resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    props_file = write_props_file(props)
+    try:
+        remotion('render', 'TalkClip', out, '--props', props_file,
+                 '--concurrency=1', '--log=error')
+    finally:
+        props_file.unlink(missing_ok=True)
+    print(f'  成片: {out}')
+
+
 def cmd_list(a):
     for f in sorted(CHARS.glob('*.json')):
         if not f.is_file():
@@ -218,6 +249,18 @@ def main():
                    help='口型共发音时间曲线（相邻口型平滑过渡+预塑形）。'
                         '默认关闭：已验收角色的输出必须零漂移，显式开启才生效')
     r.set_defaults(fn=cmd_render)
+
+    s = sub.add_parser('say', help='文本 → 表演 → 口播成片（确定性合成）')
+    s.add_argument('key')
+    s.add_argument('text', help='拼音（--pinyin，音素对应）或中文（节奏估计，诚实降级）')
+    s.add_argument('-o', '--out', required=True)
+    s.add_argument('--pinyin', action='store_true',
+                   help='输入是拼音音节序列（音素视觉对应）；缺省按中文估计节奏')
+    s.add_argument('--sps', type=float, default=5.5, help='音节速率（每秒音节数，默认 5.5）')
+    s.add_argument('--coarticulate', action='store_true', help='开启共发音时间曲线')
+    s.add_argument('--layout', default='full', choices=['full', 'pip'])
+    s.add_argument('--bg', default='#141117')
+    s.set_defaults(fn=cmd_say)
 
     ls = sub.add_parser('list', help='列出角色')
     ls.set_defaults(fn=cmd_list)

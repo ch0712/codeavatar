@@ -21,6 +21,9 @@ export type Perf = {
   /** 共发音时间曲线开关（阶段 3）：开启后口型四参数跨帧平滑过渡，替代逐帧硬切。
    * 默认关闭——已验收角色的输出必须零漂移（硬纪律 #2），显式开启才生效。 */
   coarticulation?: boolean;
+  /** 合成来源标注（synthesizePerf 产物）：pinyin=音素视觉对应；estimated=中文逐字
+   * 节奏估计，口型不保证对应发音。消费方应把 estimated 当作占位表演。 */
+  meta?: { mode: 'pinyin' | 'estimated'; unknownChars?: string[] };
 };
 export type Caption = { t0: number; t1: number; text: string };
 
