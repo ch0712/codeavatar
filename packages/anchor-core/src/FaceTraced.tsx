@@ -1,10 +1,7 @@
 // src/anchor-code/FaceTraced.tsx
 import React from 'react';
 import { Pose } from './types';
-import no1 from './chars/no1.json';
-import no4 from './chars/no4.json';
-import no5 from './chars/no5.json';
-import no6 from './chars/no6.json';
+import { CHARACTER_DATA, CharacterKey } from './chars';
 
 /**
  * 由设定稿「描」出来的主播脸 —— 几何来自设计稿本身（tools/trace_design.py）。
@@ -45,13 +42,8 @@ export type CharData = {
   key?: string;
 };
 
-export const CHARS: Record<'no1' | 'no4' | 'no5' | 'no6', CharData> = {
-  no1: no1 as unknown as CharData,
-  no4: no4 as unknown as CharData,
-  no5: no5 as unknown as CharData,
-  no6: no6 as unknown as CharData,
-};
-export type CharKey = keyof typeof CHARS;
+export const CHARS = CHARACTER_DATA as unknown as Record<CharacterKey, CharData>;
+export type CharKey = CharacterKey;
 
 /** 由角色 skin 色推导鼻部四色。
  *

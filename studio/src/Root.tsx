@@ -1,9 +1,21 @@
 import React from 'react';
-import { Composition } from 'remotion';
+import { CalculateMetadataFunction, Composition } from 'remotion';
 import { Presenter } from './Presenter';
+import type { PresenterProps } from './Presenter';
 import { VisemeGrid } from './VisemeGrid';
 
 const FPS = 30;
+
+const calculateTalkClipMetadata: CalculateMetadataFunction<PresenterProps> = ({ props }) => {
+  const durationInFrames = props.perf?.frames.length ?? 90;
+  const fps = props.perf?.fps ?? FPS;
+  return {
+    durationInFrames: Math.max(1, durationInFrames),
+    fps: Number.isFinite(fps) && fps > 0 ? fps : FPS,
+    width: 1920,
+    height: 1080,
+  };
+};
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -16,6 +28,7 @@ export const RemotionRoot: React.FC = () => {
         fps={FPS}
         width={1920}
         height={1080}
+        calculateMetadata={calculateTalkClipMetadata}
         defaultProps={{
           char: 'no4' as const,
           layout: 'full' as const,

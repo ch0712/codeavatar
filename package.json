@@ -8,13 +8,10 @@
     "studio"
   ],
   "scripts": {
-    "check:boundaries": "bash packages/anchor-core/scripts/check-boundaries.sh",
-    "still": "cd studio && npx remotion still",
-    "render": "cd studio && npx remotion render",
-    "studio": "cd studio && npx remotion studio"
+    "check:boundaries": "python packages/anchor-core/scripts/check_boundaries.py",
+    "still": "remotion still studio/src/index.ts --config studio/remotion.config.ts",
+    "render": "remotion render studio/src/index.ts --config studio/remotion.config.ts",
+    "studio": "remotion studio studio/src/index.ts --config studio/remotion.config.ts"
   },
-  "license": "UNLICENSED",
-  "devDependencies": {
-    "mediabunny": "^1.64.0"
-  }
+  "license": "UNLICENSED"
 }

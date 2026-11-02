@@ -24,7 +24,8 @@ packages/anchor-core/     TS 能力包（唯一事实源）
   src/FaceTraced.tsx        参数化脸部渲染器（纯 SVG，无贴图）
   src/perf.ts               perf.json → 逐帧 Pose（确定性）
   src/chars/*.json          角色数据（描摹产物，每个角色一份）
-  scripts/check-boundaries.sh   包边界机检（提走/开源前必跑）
+  src/chars/index.ts         自动生成的角色注册表
+  scripts/check_boundaries.py   跨平台包边界机检（提走/开源前必跑）
 tools/                    Python 工具链
   sheet_gate.py             设定稿合规闸门
   zone_auto.py              五官分区自动定位（结构地标法）
@@ -44,28 +45,32 @@ docs/CHANGELOG-char-automation.md   自动化过程的实测记录与踩坑
 ## 用法
 
 ```bash
+# 先安装依赖（Windows、Linux 通用）
+python -m pip install -r requirements.txt
+npm ci
+
 # 1) 设定稿过闸（不合规会明确指出差哪一条）
-python3 tools/codeavatar.py gate examples/sheet.png
+python tools/codeavatar.py gate examples/sheet-S5.png
 
 # 2) 一条命令出角色（gate → 描摹 → 眼层拆分）
-python3 tools/codeavatar.py build examples/sheet.png no7
+python tools/codeavatar.py build examples/sheet-S5.png demo
 
 # 3) 六格口型表 + 机检
-python3 tools/codeavatar.py grid no7
+python tools/codeavatar.py grid no4
 
 # 4) 口播成片
-python3 tools/codeavatar.py render no7 -o out/clip.mp4 --props examples/perf.json
+python tools/codeavatar.py render no4 -o out/clip.mp4 --props examples/perf.json
 
 # 5) 有哪些角色
-python3 tools/codeavatar.py list
+python tools/codeavatar.py list
 ```
 
-首次使用需要 `npm install`（Remotion 4.0.537，个人/≤3 人公司免费，大公司需商业授权）。
+支持 Windows 和 Linux。需要 Python 3.11、Node.js 20、FFmpeg，以及项目 Python 依赖；在仓库根目录运行 `npm ci` 安装锁定的 JavaScript 依赖。Remotion 4.0.537 的商业授权要求请按其当前条款核对。
 
 ## 两条硬纪律
 
 1. **角色数据只有一份**，在 `packages/anchor-core/src/chars/`。工具链直接读写这里，
-   消费方只读不改。`check-boundaries.sh` 会机检这件事。
+   消费方只读不改。`python packages/anchor-core/scripts/check_boundaries.py` 会机检这件事。
 2. **改动不许静默降级**。已验收角色的输出必须逐字段可复现；任何"只在某些图上生效"的
    启发式都必须做成显式开关（例：`FOLK_NOISE_FLATTEN=1`），默认路径保持零漂移。
 
@@ -77,5 +82,4 @@ python3 tools/codeavatar.py list
 
 ## 镜像
 
-- Gitee（主）: https://gitee.com/xumijie/codeavatar
-- GitHub（镜像，PUBLIC）: https://github.com/ch0712/codeavatar
+- GitHub（公开仓库）: https://github.com/ch0712/codeavatar

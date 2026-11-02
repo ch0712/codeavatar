@@ -97,7 +97,11 @@ const GESTURE_MOOD: Record<string, keyof typeof MOODS> = {
   none: '中性',
 };
 
-/** 逐帧情绪标签：手势窗口优先，最后 0.9 秒收尾转「轻松」。 */
+/** 逐帧情绪标签：手势窗口覆盖默认中性情绪。
+ *
+ * 结束时强制切到“轻松”会让短片从开头就带笑，也会覆盖用户指定的结尾。
+ * 收势应由上层表演轨明确给出，不能是渲染器的隐式副作用。
+ */
 export const moodLabels = (perf: Perf): Array<keyof typeof MOODS> => {
   const n = perf.frames.length;
   const labels: Array<keyof typeof MOODS> = new Array(n).fill('中性');
@@ -107,8 +111,6 @@ export const moodLabels = (perf: Perf): Array<keyof typeof MOODS> => {
     const mood = GESTURE_MOOD[g.kind] ?? '中性';
     for (let f = a; f < Math.min(b, n); f++) labels[f] = mood;
   });
-  const closeFrom = Math.round((perf.duration - 0.9) * perf.fps);
-  for (let f = closeFrom; f < n; f++) labels[f] = '轻松';
   return labels;
 };
 

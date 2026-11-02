@@ -6,3 +6,4 @@ packages/anchor-core/src/chars/*.bak-*
 packages/anchor-core/src/chars/*.prespeck
 __pycache__/
 *.pyc
+.workbuddy/

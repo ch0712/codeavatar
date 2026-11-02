@@ -18,11 +18,12 @@
   退出码 0 = 全部 PASS；1 = 至少一张 FAIL
 """
 import sys
+from pathlib import Path
 
 import numpy as np
 from PIL import Image
 
-sys.path.insert(0, __file__.rsplit('/', 1)[0])
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 from zone_auto import ZoneError, detect_zones  # noqa: E402
 
 WANT_W, WANT_H = 1360, 2048

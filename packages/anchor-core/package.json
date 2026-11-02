@@ -9,10 +9,10 @@
     ".": "./src/index.ts"
   },
   "peerDependencies": {
-    "react": ">=18",
-    "remotion": ">=4"
+    "react": "19.3.1",
+    "remotion": "4.0.537"
   },
   "scripts": {
-    "check": "bash scripts/check-boundaries.sh"
+    "check": "python scripts/check_boundaries.py"
   }
 }

@@ -17,7 +17,7 @@ export type PresenterProps = {
   bg?: string;
   captions?: Caption[];
   captionStyle?: React.CSSProperties;
-  /** 角色在画面里的纵向锚点（0.5 = 头居中；越小越靠上）。 */
+  /** 角色画布中心在画面里的纵向位置（0.5 = 画布居中；越小越靠上）。 */
   anchorY?: number;
 };
 
@@ -45,10 +45,10 @@ export const Presenter: React.FC<PresenterProps> = ({
   bg = '#141117',
   captions,
   captionStyle,
-  anchorY = 0.42,
+  anchorY = 0.45,
 }) => {
   const frame = useCurrentFrameSafe();
-  const fps = useVideoConfigSafe();
+  const { fps, width: vw, height: vh } = useVideoConfigSafe();
   const labels = perf ? moodLabels(perf) : [];
   const pose: Pose = perf ? poseAt(frame, fps, perf, labels) : { ...NEUTRAL };
   const data = CHARS[char];
@@ -76,7 +76,9 @@ export const Presenter: React.FC<PresenterProps> = ({
     );
   }
 
-  const scale = 1;
+  // full：按画幅自适应缩放（此前 scale=1 在 1920x1080 下嘴部出画，lipBox y≈1014–1042
+  // 落在 1080 之外——口播成片必须看得到嘴）。anchorY = 角色画布中心在画面里的纵向位置。
+  const scale = Math.min(vw / CANVAS_W, vh / CANVAS_H);
   return (
     <AbsoluteFill style={{ background: bg }}>
       <div
@@ -86,10 +88,19 @@ export const Presenter: React.FC<PresenterProps> = ({
           top: `${anchorY * 100}%`,
           width: CANVAS_W * scale,
           height: CANVAS_H * scale,
-          transform: `translate(-50%, -18%)`,
+          transform: `translate(-50%, -50%)`,
         }}
       >
-        {head}
+        <div
+          style={{
+            width: CANVAS_W,
+            height: CANVAS_H,
+            transform: `scale(${scale})`,
+            transformOrigin: 'top left',
+          }}
+        >
+          {head}
+        </div>
       </div>
       {captions && captions.length > 0 ? (
         <div
@@ -132,4 +143,4 @@ const activeText = (caps: Caption[], frame: number, fps: number): string => {
 // 这两个 hook 只在组件内部用，抽出来只是为了让 Presenter 在非 Remotion 环境（测试）下也能 import
 import { useCurrentFrame, useVideoConfig } from 'remotion';
 const useCurrentFrameSafe = () => useCurrentFrame();
-const useVideoConfigSafe = () => useVideoConfig().fps;
+const useVideoConfigSafe = () => useVideoConfig();
