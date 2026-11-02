@@ -28,6 +28,13 @@ TOOLS = ROOT / 'tools'
 CHARS = ROOT / 'packages' / 'anchor-core' / 'src' / 'chars'
 STUDIO = ROOT / 'studio'
 
+# Windows 控制台默认 cp1252/gbk，中文 help 与诊断输出会 UnicodeEncodeError
+# （CI windows-latest 上 --help 即崩，实测复现）。统一把 stdio 切到 UTF-8；
+# errors='replace' 保证极端情况下只丢字符、不再因编码崩溃。
+for _stream in (sys.stdout, sys.stderr):
+    if _stream is not None and hasattr(_stream, 'reconfigure'):
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+
 
 def run(cmd, cwd=None, check=True, env=None):
     print('  $', subprocess.list2cmdline([str(x) for x in cmd]))
