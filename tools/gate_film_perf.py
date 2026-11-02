@@ -37,21 +37,19 @@ F2_POS_MIN = 6             # 不同停留位置数（1px 量化）—— 静止�
 
 
 def char_to_video(d):
-    """复刻 AnchorFilm.tsx 的构图换算（char 坐标系 → 1920x1080 画幅）。"""
+    """复刻 studio/src/Presenter.tsx full 布局的构图换算（char 坐标系 → 1920x1080 画幅）。
+
+    2026-11-02 取景修复后的公式：scale = min(W/CW, H/CH)，画布中心放在
+    (W/2, anchorY*H)，anchorY 默认 0.45。旧 AnchorFilm 公式（headX/headY/BOX_W）
+    已失效——瞳孔 ROI 对不上，F2 量不到瞳孔（实测 F2 有效 0 帧）。
+    """
     CW, CH_ = d['canvas']
-    FACE_X = (d['skinBox'][0] + d['skinBox'][2]) / 2
-    hairTop = min(l['box'][1] for l in d['layers']
-                  if l['hex'] != d['bg'] and l['area'] > CW * CH_ * 0.05)
-    chinY = d['skinBox'][3]
-    HEAD_H = 0.54 * 1080
-    BOX_W = 1000
-    s2b = BOX_W / CW
-    k = HEAD_H / max(1, chinY - hairTop) / s2b
-    headX, headY = 0.6 * 1920, 0.315 * 1080
-    anchorY = (hairTop + chinY) / 2
+    VW, VH = 1920, 1080
+    scale = min(VW / CW, VH / CH_)
+    anchor = 0.45  # Presenter.tsx anchorY 默认值
 
     def f(x, y):
-        return (headX + k * s2b * (x - FACE_X), headY + k * s2b * (y - anchorY))
+        return (VW / 2 + (x - CW / 2) * scale, VH * anchor + (y - CH_ / 2) * scale)
     return f
 
 
@@ -202,9 +200,17 @@ def main():
         v = np.array(f2)
         span = float(v.max() - v.min())
         pos = len(np.unique(np.round(v)))
+        # 门槛是为旧 dhk 长片标定的（≥90 帧素材）。1~3 秒的冒烟素材里
+        # 视线只切换一两次，「停留位置数」天然到不了 6 —— 按有效帧数降档，
+        # 并明确打印降档原因，不神秘失败（2026-11-02 实测：1s 素材 span 10.7px
+        # 过门槛但位置数 5 被误判）。
+        pos_min = F2_POS_MIN if len(f2) >= 90 else max(2, F2_POS_MIN // 2)
+        if pos_min != F2_POS_MIN:
+            print('   [降档] 短素材（F2 有效 %d 帧 < 90）：停留位置门槛 %d → %d'
+                  % (len(f2), F2_POS_MIN, pos_min))
         print('   F2 瞳孔在眼形里的偏心 跨度=%.2fpx 停留位置=%d  (门槛 ≥%.1fpx / ≥%d)'
-              % (span, pos, F2_SPAN_MIN, F2_POS_MIN))
-        if span < F2_SPAN_MIN or pos < F2_POS_MIN:
+              % (span, pos, F2_SPAN_MIN, pos_min))
+        if span < F2_SPAN_MIN or pos < pos_min:
             print('   ✗ F2 眼睛几乎不动 —— 视线没接到瞳孔上，或幅度不够')
             ok = False
     else:

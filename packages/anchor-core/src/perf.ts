@@ -18,6 +18,9 @@ export type Perf = {
   duration: number;
   frames: PerfFrame[];
   gestures: Array<{ t: number; t1: number; kind: string; word: string }>;
+  /** 共发音时间曲线开关（阶段 3）：开启后口型四参数跨帧平滑过渡，替代逐帧硬切。
+   * 默认关闭——已验收角色的输出必须零漂移（硬纪律 #2），显式开启才生效。 */
+  coarticulation?: boolean;
 };
 export type Caption = { t0: number; t1: number; text: string };
 
@@ -131,6 +134,62 @@ const moodBrowIn = (m: keyof typeof MOODS) => (MOODS[m] ?? MOODS['中性']).brow
 const moodLid = (m: keyof typeof MOODS) => (MOODS[m] ?? MOODS['中性']).lid;
 const moodSmile = (m: keyof typeof MOODS) => (MOODS[m] ?? MOODS['中性']).smile;
 
+/** 单帧口型目标（legacy 路径与共发音路径共用同一公式，保证关闭时零漂移）。 */
+export type MouthTarget = { open: number; wide: number; round: number; jaw: number };
+const legacyMouth = (pf: PerfFrame): MouthTarget => {
+  // 口型：音节包络 o 决定"这个音张多大"，viseme 决定"张成什么形状"
+  const v = VISEME[pf.m] ?? VISEME.M;
+  const env = clamp(0.42 + 0.58 * pf.o, 0, 1);
+  return {
+    open: v.mouthOpen * env,
+    wide: v.mouthWide * (0.55 + 0.45 * pf.o),
+    round: v.mouthRound,
+    jaw: v.jaw * env,
+  };
+};
+
+/**
+ * 共发音时间曲线（阶段 3 / ROADMAP §4-3 第 1 项）：
+ * 六张嘴形逐帧硬切是「贴纸式」说话——相邻口型之间没有任何过渡，
+ * 换音瞬间形状跳变。真人的发音器官有质量，形状变化连续且有预塑形
+ * （发下一个音之前嘴已经开始就位）。
+ *
+ * 做法：先按 legacy 公式逐帧算目标向量，再做 5 点余弦窗时域平滑
+ * （W=2 帧 @30fps ≈ 66ms，覆盖大多数辅音过渡）；future 侧权重 1.0、
+ * past 侧 0.8 —— 预塑形略强于滞后，符合协同发音的生理方向。
+ * 同一 frames 数组只算一次（WeakMap 缓存），确定性可复现。
+ */
+const COARTIC_CACHE = new WeakMap<PerfFrame[], MouthTarget[]>();
+const coarticulated = (frames: PerfFrame[]): MouthTarget[] => {
+  const hit = COARTIC_CACHE.get(frames);
+  if (hit) return hit;
+  const n = frames.length;
+  const targets = frames.map(legacyMouth);
+  const W = 2;
+  const kernel: number[] = [];
+  for (let k = -W; k <= W; k++) {
+    const base = Math.cos((k / (W + 1)) * (Math.PI / 2)) ** 2;
+    kernel.push(k < 0 ? base * 0.8 : base); // 预塑形：未来帧权重 > 过去帧
+  }
+  const out: MouthTarget[] = new Array(n);
+  for (let f = 0; f < n; f++) {
+    let open = 0, wide = 0, round = 0, jaw = 0, wsum = 0;
+    for (let k = -W; k <= W; k++) {
+      const g = f + k;
+      if (g < 0 || g >= n) continue;
+      const w = kernel[k + W];
+      open += targets[g].open * w;
+      wide += targets[g].wide * w;
+      round += targets[g].round * w;
+      jaw += targets[g].jaw * w;
+      wsum += w;
+    }
+    out[f] = { open: open / wsum, wide: wide / wsum, round: round / wsum, jaw: jaw / wsum };
+  }
+  COARTIC_CACHE.set(frames, out);
+  return out;
+};
+
 export const poseAt = (frame: number, fps: number, perf: Perf, labels: Array<keyof typeof MOODS>): Pose => {
   const { from, to, w } = moodAt(frame, labels);
   const mix = (a: number, b: number) => a + (b - a) * w;
@@ -143,13 +202,14 @@ export const poseAt = (frame: number, fps: number, perf: Perf, labels: Array<key
   p.lid = mix(moodLid(from), moodLid(to));
   p.smile = mix(moodSmile(from), moodSmile(to));
 
-  // 口型：音节包络 o 决定"这个音张多大"，viseme 决定"张成什么形状"
-  const v = VISEME[pf.m] ?? VISEME.M;
-  const env = clamp(0.42 + 0.58 * pf.o, 0, 1);
-  p.mouthOpen = v.mouthOpen * env;
-  p.mouthWide = v.mouthWide * (0.55 + 0.45 * pf.o);
-  p.mouthRound = v.mouthRound;
-  p.jaw = v.jaw * env;
+  // 口型：legacy = 逐帧硬切（零漂移默认路径）；coarticulation = 时间曲线（显式开启）
+  const mouth: MouthTarget = perf.coarticulation
+    ? coarticulated(perf.frames)[Math.min(frame, perf.frames.length - 1)]
+    : legacyMouth(pf);
+  p.mouthOpen = mouth.open;
+  p.mouthWide = mouth.wide;
+  p.mouthRound = mouth.round;
+  p.jaw = mouth.jaw;
 
   // 该帧的头部/视线微动（来自真实语音的重音包络与视线轨迹）
   const t = frame / fps;

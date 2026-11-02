@@ -162,6 +162,12 @@ def cmd_render(a):
             props.update(loaded)
         else:
             props['perf'] = loaded
+    if getattr(a, 'coarticulate', False):
+        perf = props.get('perf')
+        if isinstance(perf, dict):
+            props['perf'] = {**perf, 'coarticulation': True}
+        else:
+            raise SystemExit('--coarticulate 需要 --props 提供 perf')
     out = Path(a.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     props_file = write_props_file(props)
@@ -208,6 +214,9 @@ def main():
     r.add_argument('--props', help='表演数据 JSON（perf / captions / audio）')
     r.add_argument('--layout', default='full', choices=['full', 'pip'])
     r.add_argument('--bg', default='#141117')
+    r.add_argument('--coarticulate', action='store_true',
+                   help='口型共发音时间曲线（相邻口型平滑过渡+预塑形）。'
+                        '默认关闭：已验收角色的输出必须零漂移，显式开启才生效')
     r.set_defaults(fn=cmd_render)
 
     ls = sub.add_parser('list', help='列出角色')

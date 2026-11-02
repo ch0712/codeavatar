@@ -31,6 +31,7 @@ jobs:
       - run: python tools/codeavatar.py list
       - run: python tools/codeavatar.py gate examples/sheet-S5.png
       - run: python packages/anchor-core/scripts/check_boundaries.py
+      - run: python tools/coartic_check.py
       - run: npm run typecheck --workspace @anchor/studio
       # 真实渲染验收：六格口型表（含机检）+ 完整短视频导出 + npm 路线静帧
       - run: python tools/codeavatar.py grid no4
