@@ -13,6 +13,9 @@ jobs:
         python: ['3.11']
         node: ['20']
     runs-on: ${{ matrix.os }}
+    env:
+      # windows-latest 控制台是 cp1252，工具链输出 ✅/❌/中文会 UnicodeEncodeError
+      PYTHONIOENCODING: utf-8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

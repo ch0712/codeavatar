@@ -38,7 +38,12 @@ for _stream in (sys.stdout, sys.stderr):
 
 def run(cmd, cwd=None, check=True, env=None):
     print('  $', subprocess.list2cmdline([str(x) for x in cmd]))
-    r = subprocess.run([str(x) for x in cmd], cwd=cwd, shell=False, env=env)
+    # 子进程（sheet_gate/trace_design 等）打印 ✅/❌/中文，Windows cp1252 控制台会
+    # UnicodeEncodeError（CI windows-latest gate 步骤实锤）。统一让子进程 stdio 用 UTF-8。
+    child_env = {**os.environ, 'PYTHONIOENCODING': 'utf-8'}
+    if env:
+        child_env.update(env)
+    r = subprocess.run([str(x) for x in cmd], cwd=cwd, shell=False, env=child_env)
     if check and r.returncode != 0:
         raise SystemExit(f'失败（exit {r.returncode}）')
     return r.returncode
