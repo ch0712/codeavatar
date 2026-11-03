@@ -121,7 +121,19 @@
   连带修复既有 bug：半角 `.` 结尾的中句不切句（被末尾兜底掩盖），已加正则
   并补断言；`gate_film_perf` F2 跨度门槛随短素材降档（5.0→3.5px，三点实测
   标定：静止 1.5 / 短片 4.83 / 满视线 9.6）。）
-- [ ] 用动作单元和角色风格配置约束协调关系；任何自动生成动作可锁定、覆盖、重播。
+- [x] 用动作单元和角色风格配置约束协调关系；任何自动生成动作可锁定、覆盖、重播。
+  （**2026-11-03 落地**：`style.ts`——动作单元 `units`（nod/shake/tilt/glance/
+  lookCamera/blinkOnce 原子构造器，组装轨的积木）；`MotionStyle` 角色级协调
+  约束（gazeGain/headGain 幅度倍率、allow 轨开关、headGazeCouple 头-眼耦合
+  ——与头部动作时间重叠的注视 span 按 (1-couple) 衰减、breathBpm 覆盖、
+  locked 锁定轨**整条替换且不被增益/耦合触碰**——"数据说了算"的逃逸口）；
+  `applyMotionStyle` 纯数据变换，空 style ≡ 恒等（JSON 字节相同），求值器
+  poseAt 不动、渲染零漂移；`synthesizePerf` `style:` 选项（隐含 motion）。
+  锁定/覆盖/重播三语义齐备：locked 替换、style 覆盖生成、同 seed 逐字节重播
+  （异 seed 不同亦有断言）。style-check 24 项断言进 CI（总计 92 项）。
+  实测：style={gazeGain:1.1, headGain:1.3, headGazeCouple:0.3} 产物渲染
+  F2 9.27px / 10 位置全过；轮内抓出并修复"锁定轨仍被增益触碰"违反锁定
+  语义的 bug（blink 无增益项所以侥幸漏网——单轨锁定断言必须每轨都测）。）
 
 ### 阶段 4：视觉表现上限（P2）
 - [ ] 对 2.5D 深度分层、网格形变、遮挡和受控视角做同角色 A/B 原型。

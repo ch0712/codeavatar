@@ -33,3 +33,7 @@ export type {
   HeadSpan, HeadTrack, HeadOffset,
   BreathTrack, MotionTrack,
 } from './motion';
+
+// 动作单元与角色风格协调（阶段 3）：原子动作构造器 + 增益/开关/耦合/锁定
+export { units, applyMotionStyle } from './style';
+export type { MotionStyle } from './style';

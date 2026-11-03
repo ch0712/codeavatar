@@ -16,6 +16,7 @@ process.stdin.on('end', () => {
     sps: typeof o.sps === 'number' && o.sps > 0.5 && o.sps < 20 ? o.sps : undefined,
     seed: typeof o.seed === 'number' ? o.seed : undefined,
     motion: !!o.motion, // 低幅动作轨（阶段 3 第 4 项）：显式开启
+    style: o.style && typeof o.style === 'object' ? o.style : undefined, // 角色风格（隐含 motion）
   });
   process.stdout.write(JSON.stringify(perf));
 });

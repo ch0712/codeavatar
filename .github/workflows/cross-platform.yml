@@ -35,6 +35,7 @@ jobs:
       - run: python tools/coartic_check.py packages/anchor-core/scripts/speech-check.ts
       - run: python tools/coartic_check.py packages/anchor-core/scripts/intent-check.ts
       - run: python tools/coartic_check.py packages/anchor-core/scripts/motion-check.ts
+      - run: python tools/coartic_check.py packages/anchor-core/scripts/style-check.ts
       - run: npm run typecheck --workspace @anchor/studio
       # 真实渲染验收：六格口型表（含机检）+ 完整短视频导出 + npm 路线静帧
       - run: python tools/codeavatar.py grid no4

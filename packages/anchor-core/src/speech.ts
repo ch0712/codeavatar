@@ -11,6 +11,8 @@
 import { Perf, PerfFrame } from './perf';
 import { Viseme } from './types';
 import type { MotionTrack } from './motion';
+import { applyMotionStyle } from './style';
+import type { MotionStyle } from './style';
 
 export type SynthOptions = {
   fps?: number;
@@ -24,6 +26,10 @@ export type SynthOptions = {
    * （注视目标 / 眨眼节奏 / 头部预备-跟随-收势 / 呼吸）。缺省不生成——
    * 已有产物的输出必须零漂移（硬纪律 #2）。 */
   motion?: boolean;
+  /** 角色风格协调（阶段 3 第 5 项）：幅度增益/轨开关/头-眼耦合/锁定轨。
+   * 给出即隐含 motion: true（风格没有对象就不成立）；空 style 应用后
+   * 与纯 motion 产物逐字段相等。 */
+  style?: MotionStyle;
 };
 
 export const DEFAULT_SPS = 5.5;
@@ -235,8 +241,9 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
   };
 
   // 低幅动作轨（显式开关，阶段 3 第 4 项）。全部确定性：同文本同参数逐字节相同。
+  const wantMotion = opts.motion || opts.style !== undefined;
   let motion: MotionTrack | undefined;
-  if (opts.motion) {
+  if (wantMotion) {
     const total = frames.length;
     // 眨眼节奏：首眨钳到素材内（0.5~1.3s，短句也不落空），之后间隔 0.9~2.0s、
     // 28% 概率紧跟补眨（幅度略小）。素材 <0.5s 时无眨眼（诚实：眨不完一次）。
@@ -288,6 +295,9 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
       head: { spans: headSpans },
       breath: { bpm: 14 },
     };
+    // 风格协调（阶段 3 第 5 项）：增益/开关/耦合/锁定应用于生成结果。
+    // 空对象 ≡ 恒等变换（style-check 断言），默认零漂移。
+    if (opts.style) motion = applyMotionStyle(motion, opts.style);
   }
 
   return {

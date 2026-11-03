@@ -71,6 +71,11 @@ python tools/codeavatar.py say no4 "ni3 hao3!" \
     -o out/talk.mp4 --pinyin --motion          # +低幅动作轨：注视目标/眨眼节奏/
                                                # 头部预备-跟随-收势/呼吸（显式开启，
                                                # 缺省关闭保证已验收角色零漂移）
+# 角色风格协调（幅度增益/轨开关/头-眼耦合/锁定轨）走 JSON 路线：
+#   echo '{"text":"ni3 hao3!","pinyin":true,"style":{"gazeGain":1.1,
+#         "headGain":1.3,"headGazeCouple":0.3}}' | python tools/say_perf.py
+#   → out/perf.json 后用 render --props 消费；style 里给出 locked 轨可
+#   整条替换自动生成的动作（锁定），同参数同 seed 逐字节重播。
 
 # 5) 有哪些角色
 python tools/codeavatar.py list
