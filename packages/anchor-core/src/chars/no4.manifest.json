@@ -1,0 +1,20 @@
+{
+ "key": "no4",
+ "steps": [
+  {
+   "step": "sync",
+   "script": "relayer",
+   "ok": true,
+   "ms": 412,
+   "sha256": "3afe0d650989c005677f636a57c2bd342336e4f909366407a109f91613512268",
+   "artifact": "D:\\chatgpt\\codeavatar\\packages\\anchor-core\\src\\chars\\no4.json"
+  },
+  {
+   "step": "split-eyes",
+   "script": "relayer",
+   "ok": false,
+   "ms": 3214,
+   "error": "失败（exit 1）"
+  }
+ ]
+}

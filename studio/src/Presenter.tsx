@@ -19,6 +19,9 @@ export type PresenterProps = {
   captionStyle?: React.CSSProperties;
   /** 角色画布中心在画面里的纵向位置（0.5 = 画布居中；越小越靠上）。 */
   anchorY?: number;
+  /** Pose 直通（阶段 1/2）：给出时覆盖该字段，叠加在 perf 求值结果之上。
+   * 16 参数直接可控（第三方集成/契约边界值回归用）；缺省 undefined = 零漂移。 */
+  pose?: Partial<Pose>;
 };
 
 const PipClip: React.FC<{ children: React.ReactNode; size: number }> = ({ children, size }) => (
@@ -60,7 +63,10 @@ export const Presenter: React.FC<PresenterProps> = (allProps) => {
   const frame = useCurrentFrameSafe();
   const { fps, width: vw, height: vh } = useVideoConfigSafe();
   const labels = perf ? moodLabels(perf) : [];
-  const pose: Pose = perf ? poseAt(frame, fps, perf, labels) : { ...NEUTRAL };
+  const pose: Pose = {
+    ...(perf ? poseAt(frame, fps, perf, labels) : { ...NEUTRAL }),
+    ...allProps.pose, // Pose 直通：只覆盖显式给出的字段（缺省零漂移）
+  };
   const data = CHARS[char];
 
   const head = <FaceTraced pose={pose} data={data} transparentBg />;

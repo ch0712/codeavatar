@@ -1,0 +1,9 @@
+# 源文件统一 LF（跨平台一致性，见 tools/repo_hygiene.py）
+*.py text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.md text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.png binary
+*.mp4 binary

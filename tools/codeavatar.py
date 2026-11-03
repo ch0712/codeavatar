@@ -15,12 +15,14 @@
   MEM_MAX=2600M          渲染内存上限（本机 3.7G，必须限）
 """
 import argparse
+import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import shutil
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -123,20 +125,87 @@ def cmd_build(a):
     if os.path.exists(out) and not a.force:
         raise SystemExit(f'{out} 已存在。要覆盖加 --force（会覆盖一个已验收角色，慎用）')
     sheet = Path(a.sheet).resolve()
-    print(f'[1/3] 合规闸门 {sheet}')
-    py('sheet_gate.py', sheet)
-    print(f'[2/3] 描摹 {a.sheet} → {key}.json')
-    py('trace_design.py', 'auto', sheet, out)
+    # 事务性 manifest（阶段 2 第 2+3 项）：每步记录命令/耗时/产物 hash，
+    # 失败步骤也留痕（manifest 随每步落盘）——可解释、可诊断、可复现。
+    manifest_path = CHARS / f'{key}.manifest.json'
+    manifest: dict = {'key': key, 'sheet': str(sheet), 'schemaVersion': 1, 'steps': []}
+
+    def flush():
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + '\n',
+                                 encoding='utf-8')
+
+    def step(name, script, *args_, artifact=None):
+        t0 = time.time()
+        try:
+            py(script, *args_)
+        except SystemExit as e:
+            manifest['steps'].append({
+                'step': name, 'script': script, 'ok': False,
+                'ms': round((time.time() - t0) * 1000), 'error': str(e),
+            })
+            flush()
+            print(f'  manifest（含失败步骤）已写 {manifest_path}')
+            raise
+        rec: dict = {'step': name, 'script': script, 'ok': True,
+                     'ms': round((time.time() - t0) * 1000)}
+        if artifact is not None and Path(artifact).is_file():
+            rec['artifact'] = str(artifact)
+            rec['sha256'] = hashlib.sha256(Path(artifact).read_bytes()).hexdigest()
+        manifest['steps'].append(rec)
+        flush()
+
+    print(f'[1/4] 合规闸门 {sheet}')
+    step('gate', 'sheet_gate.py', sheet)
+    print(f'[2/4] 描摹 {a.sheet} → {key}.json')
+    step('trace', 'trace_design.py', 'auto', sheet, out, artifact=out)
     print('[3/4] 眼层拆分（lid / iris）')
-    py('split_eye_layers.py', key)
+    step('split-eyes', 'split_eye_layers.py', key, artifact=out)
     print('[4/4] 更新角色注册表')
-    py('sync_char_registry.py')
+    step('sync-registry', 'sync_char_registry.py')
     with out.open(encoding='utf-8') as f:
         d = json.load(f)
     movable = [(l['role'], l.get('side')) for l in d['layers'] if l.get('role')]
     print(f'\n✅ {key}: {len(d["layers"])} 层 · {len(movable)} 个可动件 {movable}')
     print(f'   skinBox {d["skinBox"]} · lipBox {d["lipBox"]}')
+    print(f'   manifest: {manifest_path}')
     print(f'   下一步：codeavatar grid {key}')
+
+
+def cmd_relayer(a):
+    """局部重跑（阶段 2 第 4 项）：只重跑受影响步骤，不重跑全图描摹——
+    避免为改一个部件重跑全流水线引入身份漂移。追加记录到 manifest。"""
+    key = a.key
+    char_json = CHARS / f'{key}.json'
+    if not char_json.is_file():
+        raise SystemExit(f'{char_json} 不存在（先 build）')
+    manifest_path = CHARS / f'{key}.manifest.json'
+    manifest = json.loads(manifest_path.read_text(encoding='utf-8')) \
+        if manifest_path.is_file() else {'key': key, 'steps': []}
+    t0 = time.time()
+    try:
+        if a.only == 'split-eyes':
+            print(f'[relayer] 眼层拆分（只动 lid/iris 层）{key}')
+            py('split_eye_layers.py', key)
+        elif a.only == 'sync':
+            print('[relayer] 更新角色注册表')
+            py('sync_char_registry.py')
+        else:
+            raise SystemExit(f'未知步骤 {a.only}')
+    except SystemExit as e:
+        manifest['steps'].append({'step': a.only, 'script': 'relayer', 'ok': False,
+                                  'ms': round((time.time() - t0) * 1000), 'error': str(e)})
+        manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + '\n',
+                                 encoding='utf-8')
+        raise
+    manifest['steps'].append({
+        'step': a.only, 'script': 'relayer', 'ok': True,
+        'ms': round((time.time() - t0) * 1000),
+        'sha256': hashlib.sha256(char_json.read_bytes()).hexdigest(),
+        'artifact': str(char_json),
+    })
+    manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=1) + '\n',
+                             encoding='utf-8')
+    print(f'  manifest 已更新 {manifest_path}')
 
 
 def cmd_grid(a):
@@ -265,6 +334,31 @@ def cmd_say(a):
         print(f'  成片: {out}')
 
 
+def cmd_still(a):
+    """单帧静帧（身份回归/预览）：char + 可选 perf（单帧）→ PNG。"""
+    props = {'char': a.key, 'layout': a.layout, 'bg': a.bg}
+    if a.props:
+        with Path(a.props).resolve().open(encoding='utf-8') as f:
+            loaded = json.load(f)
+        if isinstance(loaded, dict) and 'perf' in loaded:
+            props.update(loaded)
+        elif isinstance(loaded, dict) and 'frames' in loaded:
+            # 裸 Perf（有 frames 无 perf 键）→ 挂到 props.perf
+            props['perf'] = loaded
+        else:
+            props.update(loaded)  # 裸 props（char/layout/bg 等），无表演数据
+        if isinstance(props.get('perf'), dict):
+            validate_perf_or_exit(props['perf'], a.props)
+    out = Path(a.out).resolve()
+    out.parent.mkdir(parents=True, exist_ok=True)
+    props_file = write_props_file(props)
+    try:
+        remotion('still', 'CharStill', out, '--props', props_file, '--log=error')
+    finally:
+        props_file.unlink(missing_ok=True)
+    print(f'  静帧: {out}')
+
+
 def cmd_list(a):
     for f in sorted(CHARS.glob('*.json')):
         if not f.is_file():
@@ -329,6 +423,22 @@ def main():
 
     ls = sub.add_parser('list', help='列出角色')
     ls.set_defaults(fn=cmd_list)
+
+    rl = sub.add_parser('relayer', help='局部重跑建角步骤（不重跑全图描摹，防身份漂移）')
+    rl.add_argument('key')
+    rl.add_argument('--only', required=True, choices=['split-eyes', 'sync'],
+                    help='split-eyes=眼层拆分（前置条件：角色刚 trace 未拆分，'
+                         '对已拆分角色重跑会因重定表引用原始层失败——需 build --force '
+                         '整链重跑）/ sync=注册表（幂等）')
+    rl.set_defaults(fn=cmd_relayer)
+
+    st = sub.add_parser('still', help='单帧静帧 PNG（身份回归/预览）')
+    st.add_argument('key')
+    st.add_argument('-o', '--out', required=True)
+    st.add_argument('--props', help='单帧表演 JSON（可选）')
+    st.add_argument('--layout', default='full', choices=['full', 'pip'])
+    st.add_argument('--bg', default='#141117')
+    st.set_defaults(fn=cmd_still)
 
     a = p.parse_args()
     a.fn(a)

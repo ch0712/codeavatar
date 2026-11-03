@@ -100,4 +100,14 @@ with tempfile.TemporaryDirectory() as td:
     check('validate_perf.py 坏 perf → exit 2 + stderr 错误列表',
           r.returncode == EXIT_INVALID and 'E_RANGE' in r.stderr)
 
+    # 9) 含空格与非 ASCII 字符的路径传递（§8-197）
+    weird = tdp / '测 试 目录'
+    weird.mkdir(exist_ok=True)
+    weird_props = weird / 'perf 测试.json'
+    weird_props.write_text(json.dumps(good, ensure_ascii=False), encoding='utf-8')
+    weird_out = weird / '成片 测试.mp4'
+    r = run_cli(['render', 'no4', '-o', str(weird_out), '--props', str(weird_props), '--dry-run'])
+    check('含空格/中文路径（输入+输出）→ exit 0',
+          r.returncode == EXIT_OK, f'rc={r.returncode} {r.stderr[-100:]}')
+
 raise SystemExit(1 if failures else 0)
