@@ -10,26 +10,26 @@
 
 /** 一个瞬间的姿态向量。全部可选，缺省取中性。 */
 export interface Pose {
-  /** 眉毛整体抬高 0..1（惊讶/强调） */
+  /** 眉毛整体抬高 -1..1.15（负=压低，1.15=瞪大配合 lid）——渲染端按此范围 clamp */
   brow: number;
-  /** 眉毛内端下压 0..1（皱眉/用力），和外端抬高组合出"质疑" */
+  /** 眉毛内端下压 0..1.15（皱眉/用力），和外端抬高组合出"质疑" */
   browIn: number;
   /** 左右眉不对称 -1..1（正值右侧抬高）—— "挑一边眉毛"的怀疑脸靠它 */
   browAsym: number;
-  /** 眼睑开合 0.06..1（0.06≈闭眼，1=正常，1.15=瞪大） */
+  /** 眼睑开合 0.06..1.15（0.06≈闭眼，1=正常，1.15=瞪大） */
   lid: number;
   /** 嘴角上扬 -1..1（负=嘴角向下，沮丧） */
   smile: number;
-  /** 视线：-1..1 画幅相对偏移 */
+  /** 视线：X -1.15..1.15 / Y -1..1 画幅相对偏移（渲染端 clamp） */
   gazeX: number;
   gazeY: number;
   /** 张口 0..1 —— viseme 的主参数 */
   mouthOpen: number;
-  /** 嘴横向展开 0..1 —— 决定「衣/诶」这类扁口型 */
+  /** 嘴横向展开 -0.5..1 —— 决定「衣/诶」这类扁口型（负=收窄） */
   mouthWide: number;
   /** 嘴收圆 0..1 —— 决定「哦/乌」这类圆口型 */
   mouthRound: number;
-  /** 下颌下沉 0..1（跟着 mouthOpen 联动，但可以独立加重音） */
+  /** 下颌下沉 0..0.8（跟着 mouthOpen 联动，但可以独立加重音） */
   jaw: number;
   /** 头部倾斜 -1..1（度 × 3.2） */
   tilt: number;
@@ -40,6 +40,31 @@ export interface Pose {
   /** 眨眼 0..1（1=完全闭） */
   blink: number;
 }
+
+/**
+ * Pose 数值范围契约（阶段 1）：**机器可校验的唯一事实源**。
+ * 之前是注释约定（brow 注释 0..1 却含负值、browIn 注释 0..1 却含 1.15），
+ * 与渲染端各处硬编码 clamp 不一致。现在渲染端 clamp 与 schema 校验
+ * 都从这里取值——契约外值显式报错，禁止静默通过。
+ * 范围 = 实际渲染行为（含既有 MOODS 预设的取值：认真 brow=-0.7、browIn=1.15）。
+ */
+export const POSE_RANGES: Record<keyof Pose, [number, number]> = {
+  brow: [-1, 1.15],
+  browIn: [0, 1.15],
+  browAsym: [-1, 1],
+  lid: [0.06, 1.15],
+  smile: [-1, 1],
+  gazeX: [-1.15, 1.15],
+  gazeY: [-1, 1],
+  mouthOpen: [0, 1],
+  mouthWide: [-0.5, 1],
+  mouthRound: [0, 1],
+  jaw: [0, 0.8],
+  tilt: [-1, 1],
+  nod: [-1, 1],
+  yaw: [-1, 1],
+  blink: [0, 1],
+};
 
 export const NEUTRAL: Pose = {
   brow: 0,

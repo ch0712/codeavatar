@@ -1,0 +1,142 @@
+{
+  "schemaVersion": 1,
+  "poseRanges": {
+    "brow": [
+      -1,
+      1.15
+    ],
+    "browIn": [
+      0,
+      1.15
+    ],
+    "browAsym": [
+      -1,
+      1
+    ],
+    "lid": [
+      0.06,
+      1.15
+    ],
+    "smile": [
+      -1,
+      1
+    ],
+    "gazeX": [
+      -1.15,
+      1.15
+    ],
+    "gazeY": [
+      -1,
+      1
+    ],
+    "mouthOpen": [
+      0,
+      1
+    ],
+    "mouthWide": [
+      -0.5,
+      1
+    ],
+    "mouthRound": [
+      0,
+      1
+    ],
+    "jaw": [
+      0,
+      0.8
+    ],
+    "tilt": [
+      -1,
+      1
+    ],
+    "nod": [
+      -1,
+      1
+    ],
+    "yaw": [
+      -1,
+      1
+    ],
+    "blink": [
+      0,
+      1
+    ]
+  },
+  "frame": {
+    "m": {
+      "enum": [
+        "M",
+        "A",
+        "O",
+        "E",
+        "I",
+        "U"
+      ]
+    },
+    "o": [
+      0,
+      1
+    ],
+    "env": [
+      0,
+      1
+    ],
+    "br": [
+      -1,
+      1
+    ],
+    "nd": [
+      -1,
+      1
+    ],
+    "gz": [
+      -1,
+      1
+    ]
+  },
+  "fps": [
+    1,
+    240
+  ],
+  "intents": [
+    "说明",
+    "强调",
+    "疑问",
+    "安抚",
+    "肯定"
+  ],
+  "motion": {
+    "gazeTargetX": [
+      -1.15,
+      1.15
+    ],
+    "gazeTargetY": [
+      -1,
+      1
+    ],
+    "blinkAmp": [
+      0,
+      1
+    ],
+    "blinkRate": [
+      0,
+      10
+    ],
+    "headYawTiltNod": [
+      -1,
+      1
+    ],
+    "breathBpm": [
+      4,
+      40
+    ]
+  },
+  "errorCodes": [
+    "E_SCHEMA_VERSION",
+    "E_TYPE",
+    "E_RANGE",
+    "E_ENUM",
+    "E_MISSING",
+    "E_INCONSISTENT"
+  ]
+}

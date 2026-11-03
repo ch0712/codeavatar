@@ -36,10 +36,34 @@ tools/                    Python 工具链
   gate_structure.py         结构闸门（缺件/畸形）
   gate_layer_roles.py       层角色闸门
   gate_film_perf.py         成片级表演闸门（口腔溢出/闭唇占比）
+  validate_perf.py          Perf 契约校验（读 schema/perf-contract.json）
+  cli_check.py              CLI 退出码/dry-run/结构化输出场景断言
   codeavatar.py             统一 CLI
 studio/                   Remotion 工程（口播成片输出）
 docs/SPEC.md              设定稿硬规格（含负面清单）
+docs/TIMING.md            时间采样/插值/事件轨/track 混合规范（逐条附断言证据）
 docs/CHANGELOG-char-automation.md   自动化过程的实测记录与踩坑
+```
+
+## 契约与唯一事实源（阶段 1）
+
+- **Pose 数值范围**：唯一事实源是 `packages/anchor-core/src/types.ts` 的 `POSE_RANGES`
+  （机器可校验常量，渲染端 clamp 与 schema 校验都从它取值）。此前是注释约定且与
+  实际渲染行为不一致（brow 注释 0..1 实际 -1..1.15），已修正为"注释 = 契约 = 渲染行为"。
+- **Perf 契约**：`packages/anchor-core/schema/perf-contract.json`（由 TS 常量经
+  `scripts/schema-dump.ts` 生成入库，CI 断言与 TS 逐字节同步）。TS 侧 `validatePerf()`
+  与 Python 侧 `tools/validate_perf.py` 读**同一份**契约——两语言不许各自维护范围表。
+- **代码生成边界**：`src/chars/index.ts` 是自动生成的角色注册表，勿手改；
+  角色数据 `src/chars/*.json` 由 `build` 流水线产出，只许工具链写。
+- **退出码**：CLI 稳定退出码 `0` 成功 / `2` 输入或契约违规 / `3` 环境缺失；
+  `--json` 时 stdout 只有机器可读 JSON，诊断信息走 stderr。
+
+```bash
+# 契约校验（渲染前拦截契约外值，显式报错而非静默 clamp）
+python tools/validate_perf.py out/perf.json
+
+# dry-run：合成 + 契约校验 + 路径检查，不渲染（CI/第三方集成用）
+python tools/codeavatar.py render no4 -o out/clip.mp4 --props out/perf.json --dry-run --json
 ```
 
 ## 用法

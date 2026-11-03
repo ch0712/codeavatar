@@ -151,6 +151,28 @@ def cmd_grid(a):
     return py('gate_mouth.py', out, 3, 2, 640, 800, '--char', a.key)
 
 
+def validate_perf_or_exit(perf, source):
+    """Perf 契约校验（阶段 1）：契约外值显式报错，禁止静默通过。
+    错误语义与 TS validatePerf 一致（共享 perf-contract.json）。"""
+    r = subprocess.run(
+        [sys.executable, TOOLS / 'validate_perf.py', '--quiet'],
+        input=json.dumps(perf, ensure_ascii=False),
+        capture_output=True, text=True, encoding='utf-8', cwd=ROOT,
+    )
+    if r.returncode == 3:
+        sys.stderr.write(r.stderr)
+        raise SystemExit(3)
+    if r.returncode != 0:
+        # 结构化错误列表复用校验器的 stderr（stdout 留给机器可读结果）
+        detail = subprocess.run(
+            [sys.executable, TOOLS / 'validate_perf.py'],
+            input=json.dumps(perf, ensure_ascii=False),
+            capture_output=True, text=True, encoding='utf-8', cwd=ROOT,
+        )
+        sys.stderr.write(detail.stderr)
+        raise SystemExit(2)
+
+
 def cmd_render(a):
     props = {'char': a.key, 'layout': a.layout, 'bg': a.bg}
     if a.props:
@@ -168,6 +190,15 @@ def cmd_render(a):
             props['perf'] = {**perf, 'coarticulation': True}
         else:
             raise SystemExit('--coarticulate 需要 --props 提供 perf')
+    if isinstance(props.get('perf'), dict):
+        validate_perf_or_exit(props['perf'], a.props)
+    if getattr(a, 'dry_run', False):
+        if getattr(a, 'json_out', False):
+            print(json.dumps({'ok': True, 'dryRun': True,
+                              'out': str(Path(a.out).resolve())}, ensure_ascii=False))
+        else:
+            print(f'  [dry-run] 校验通过，未渲染。目标: {Path(a.out).resolve()}')
+        return
     out = Path(a.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
     props_file = write_props_file(props)
@@ -176,7 +207,13 @@ def cmd_render(a):
                  '--concurrency=1', '--log=error')
     finally:
         props_file.unlink(missing_ok=True)
-    print(f'  成片: {out}')
+    if getattr(a, 'json_out', False):
+        perf = props.get('perf') or {}
+        print(json.dumps({'ok': True, 'out': str(out),
+                          'frames': len(perf.get('frames', [])),
+                          'duration': perf.get('duration')}, ensure_ascii=False))
+    else:
+        print(f'  成片: {out}')
 
 
 def cmd_say(a):
@@ -189,19 +226,30 @@ def cmd_say(a):
         sys.stderr.write(r.stderr)
         raise SystemExit(f'表演合成失败（exit {r.returncode}）')
     perf = json.loads(r.stdout)
+    validate_perf_or_exit(perf, 'say 合成产物（内部错误，请反馈）')
     meta = perf.get('meta') or {}
+    # stdout/stderr 分离（§8）：--json 时 stdout 只留机器可读结果，诊断走 stderr
+    say_info = (lambda s: sys.stderr.write(s + '\n')) if getattr(a, 'json_out', False) else print
     if meta.get('mode') == 'estimated':
         unk = ''.join(meta.get('unknownChars') or [])
-        print('  ⚠ estimated 模式：中文逐字节奏估计，口型不保证对应发音；'
-              f'需音素对应请用 --pinyin 传拼音。未知字符：{unk or "无"}')
+        say_info('  ⚠ estimated 模式：中文逐字节奏估计，口型不保证对应发音；'
+                 f'需音素对应请用 --pinyin 传拼音。未知字符：{unk or "无"}')
     else:
-        print(f'  pinyin 模式：{len(perf["frames"])} 帧 / {perf["duration"]:.2f}s（音素视觉对应）')
+        say_info(f'  pinyin 模式：{len(perf["frames"])} 帧 / {perf["duration"]:.2f}s（音素视觉对应）')
     if a.coarticulate:
         perf['coarticulation'] = True
     if a.motion and not perf.get('motion'):
         raise SystemExit('--motion 生成的 perf 缺少 motion 轨（合成器未生效？）')
     props = {'char': a.key, 'layout': a.layout, 'bg': a.bg, 'perf': perf}
     out = Path(a.out).resolve()
+    if getattr(a, 'dry_run', False):
+        if getattr(a, 'json_out', False):
+            print(json.dumps({'ok': True, 'dryRun': True,
+                              'out': str(out), 'frames': len(perf['frames']),
+                              'duration': perf['duration']}, ensure_ascii=False))
+        else:
+            print(f'  [dry-run] 合成与校验通过，未渲染。目标: {out}')
+        return
     out.parent.mkdir(parents=True, exist_ok=True)
     props_file = write_props_file(props)
     try:
@@ -209,7 +257,12 @@ def cmd_say(a):
                  '--concurrency=1', '--log=error')
     finally:
         props_file.unlink(missing_ok=True)
-    print(f'  成片: {out}')
+    if getattr(a, 'json_out', False):
+        print(json.dumps({'ok': True, 'out': str(out),
+                          'frames': len(perf['frames']),
+                          'duration': perf['duration']}, ensure_ascii=False))
+    else:
+        print(f'  成片: {out}')
 
 
 def cmd_list(a):
@@ -250,6 +303,10 @@ def main():
     r.add_argument('--coarticulate', action='store_true',
                    help='口型共发音时间曲线（相邻口型平滑过渡+预塑形）。'
                         '默认关闭：已验收角色的输出必须零漂移，显式开启才生效')
+    r.add_argument('--dry-run', action='store_true',
+                   help='只做契约校验与路径检查，不渲染（退出码 0=可渲染）')
+    r.add_argument('--json', dest='json_out', action='store_true',
+                   help='stdout 输出结构化 JSON 结果（第三方集成）')
     r.set_defaults(fn=cmd_render)
 
     s = sub.add_parser('say', help='文本 → 表演 → 口播成片（确定性合成）')
@@ -262,6 +319,10 @@ def main():
     s.add_argument('--coarticulate', action='store_true', help='开启共发音时间曲线')
     s.add_argument('--motion', action='store_true',
                    help='开启低幅动作轨：注视目标/眨眼节奏/头部预备-跟随-收势/呼吸')
+    s.add_argument('--dry-run', action='store_true',
+                   help='只合成与校验，不渲染')
+    s.add_argument('--json', dest='json_out', action='store_true',
+                   help='stdout 输出结构化 JSON 结果（第三方集成）')
     s.add_argument('--layout', default='full', choices=['full', 'pip'])
     s.add_argument('--bg', default='#141117')
     s.set_defaults(fn=cmd_say)

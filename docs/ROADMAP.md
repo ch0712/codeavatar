@@ -70,11 +70,34 @@
 - [ ] 做风险排序：影响范围 × 用户可见程度 × 修复成本；将证据链接到文件、命令和样片。
 
 ### 阶段 1：契约与最小可用闭环（P0）
-- [ ] 确定角色包和 Performance schema，定义版本、校验、默认值、范围、迁移和错误语义。
-- [ ] 统一 Pose/mood/viseme 的数学范围与实际渲染行为；禁止契约外值静默通过。
-- [ ] 建立可复现时间采样、曲线插值、事件轨和 track 混合规范。
-- [ ] 让 CLI 从全新环境生成角色预览与视频；结构化 stdout/stderr、退出码、dry-run、help 和路径处理完善。
-- [ ] 明确唯一事实源及代码生成/校验边界，补齐 README 快速开始与能力限制。
+- [x] 确定角色包和 Performance schema，定义版本、校验、默认值、范围、迁移和错误语义。
+  （**2026-11-03 落地**：`schema.ts` PERF_SCHEMA_VERSION=1；`validatePerf()` 返回
+  结构化错误列表 `{path, code, message}`（6 类错误码：版本/类型/范围/枚举/缺失/
+  不一致），50 条截断；契约经 `scripts/schema-dump.ts` 固化为
+  `schema/perf-contract.json`，Python `tools/validate_perf.py` 读**同一份** JSON
+  （CI 断言两语言逐字节同步）。迁移语义：`v` 字段显式给更高版本 → 拒绝
+  （E_SCHEMA_VERSION）；CLI render/say 渲染前接线校验，契约外值退出码 2 显式报错。
+  schema-check 14 项断言。）
+- [x] 统一 Pose/mood/viseme 的数学范围与实际渲染行为；禁止契约外值静默通过。
+  （**2026-11-03 落地**：`POSE_RANGES` 机器可校验常量进 types.ts——注释、契约、
+  渲染端 clamp 三者同源；修正了"brow 注释 0..1 实际 -1..1.15、browIn 注释
+  0..1 实际 1.15"的注释失真；断言"所有 MOODS 预设落在 POSE_RANGES 内"防契约
+  与预设打架；schema-check「contract 与入库 JSON 逐字节同步」。）
+- [x] 建立可复现时间采样、曲线插值、事件轨和 track 混合规范。
+  （**2026-11-03 落地**：`docs/TIMING.md` 五节规范——帧采样（整数帧/确定性/
+  duration 一致性）、插值（余弦窗/smoothstep 渗透向中性回退/头部三段曲线/
+  眨眼包络/呼吸正弦）、事件轨（无覆盖区回默认、无隐式结尾、显式表替换、
+  目标轨与微动层分层）、track 混合顺序（固定五步，开关缺省零漂移）、
+  契约边界。每条规则附 CI 断言指针。）
+- [x] 让 CLI 从全新环境生成角色预览与视频；结构化 stdout/stderr、退出码、dry-run、help 和路径处理完善。
+  （**2026-11-03 落地**：稳定退出码 0/2/3；`--dry-run`（合成+校验+路径检查不渲染）；
+  `--json` 结构化 stdout（stderr 走诊断——顺手修了 say 模式提示污染 stdout 的
+  分离违规）；`tools/cli_check.py` 8 场景断言进 CI，含**仓库外目录调用**（§8-198）
+  与未知子命令/help。真实渲染回归 F2 全过。）
+- [x] 明确唯一事实源及代码生成/校验边界，补齐 README 快速开始与能力限制。
+  （**2026-11-03 落地**：README 新增「契约与唯一事实源」节——POSE_RANGES 单源、
+  契约 JSON 生成边界（勿手改 chars/index.ts）、退出码表；check_boundaries.py
+  4 项 PASS（core 无父级引用/零运行时依赖/无消费方数据/角色数据唯一）。）
 
 ### 阶段 2：角色资产质量（P1）
 - [ ] 定义角色 brief 与设定稿检查项；支持透明/纯色背景、多个视图和语义标注。
@@ -298,3 +321,17 @@ Linux 和 Windows 都是一等开发、创作、CI 和发布平台。任何核�
   1s 冒烟片 4.83px / 满视线 9.6px）写入 gate 注释。
 - 对齐器接口只落地了 `estimated`（拼音规则）模式；`aligned`（外部音频/时间戳）模式仍为确定性回退占位，未接入真实音频对齐。
 - `Pose` 的数值范围仍是注释约定，未成为 Python/TS 共享的机器校验契约（阶段 1 待办）。
+
+## 11. 阶段 1 落地记录（2026-11-03）
+
+五项全过，新增强制门禁（CI 双平台）：
+
+| 门禁 | 内容 | 数量 |
+|:--|:--|:--|
+| schema-check | 契约校验（枚举/范围/结构/一致性/版本 + MOODS 契约互检 + 两语言契约同步） | 14 |
+| cli_check | CLI 退出码 / dry-run / --json / 仓库外调用 / help | 8 |
+| 既有 6 套断言 | coartic 6 / speech 21 / intent 13 / motion 28 / style 24 | 92 |
+| check_boundaries | 包边界 + 角色数据唯一 | 4 |
+
+新事实源：`schema/perf-contract.json`（TS 生成 → Python 共享，CI 断言同步）；
+规范文档：`docs/TIMING.md`。总断言数 **118 项**。
