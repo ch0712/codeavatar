@@ -361,7 +361,8 @@ def cmd_still(a):
 
 def cmd_list(a):
     for f in sorted(CHARS.glob('*.json')):
-        if not f.is_file():
+        # manifest 是建角诊断产物（<key>.manifest.json），不是角色数据
+        if not f.is_file() or f.name.endswith('.manifest.json'):
             continue
         with f.open(encoding='utf-8') as stream:
             d = json.load(stream)
