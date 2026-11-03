@@ -21,3 +21,15 @@ export { synthesizePerf, syllableViseme } from './speech';
 // 意图层（阶段 3）：意图 → 效价/唤醒 → 连续情绪偏移（onset/hold/release）
 export { intentEmotionAt, intentOffset, INTENT_VA, INTENT_RAMP } from './intent';
 export type { Intent, IntentSpan, IntentTrack, EmotionOffset } from './intent';
+
+// 低幅动作层（阶段 3）：注视目标 / 显式眨眼 / 头部预备-跟随-收势 / 呼吸（事件轨 + 纯函数求值）
+export {
+  gazeAt, blinkAt, headAt, breathAt, headCurve,
+  GAZE_RAMP, HEAD_RAMP, BREATH_BPM, BREATH_NOD_GAIN,
+} from './motion';
+export type {
+  GazeTarget, GazeSpan, GazeTrack,
+  BlinkEvent, BlinkTrack,
+  HeadSpan, HeadTrack, HeadOffset,
+  BreathTrack, MotionTrack,
+} from './motion';

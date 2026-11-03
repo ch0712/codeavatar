@@ -4,6 +4,8 @@ import { interpolate } from 'remotion';
 import { MOODS, NEUTRAL, Pose, VISEME, Viseme } from './types';
 import { intentEmotionAt } from './intent';
 import type { IntentTrack } from './intent';
+import type { MotionTrack } from './motion';
+import { blinkAt, breathAt, gazeAt, headAt, BREATH_NOD_GAIN } from './motion';
 
 export type PerfFrame = {
   m: Viseme;
@@ -29,6 +31,10 @@ export type Perf = {
   /** 意图轨（阶段 3）：存在时情绪由 intent → 效价/唤醒连续驱动（onset/hold/release），
    * 覆盖 moodLabels/GESTURE_MOOD 旧路径；缺省走旧路径（已验收角色零漂移）。 */
   intent?: IntentTrack;
+  /** 低幅动作轨（阶段 3）：注视目标 / 显式眨眼 / 头部预备-跟随-收势 / 呼吸。
+   * 四条轨彼此独立、各自显式启用；缺省（无 motion 字段）时 poseAt 走旧公式，
+   * 输出与接入前逐位一致（motion-golden.json 基线断言保证）。 */
+  motion?: MotionTrack;
 };
 export type Caption = { t0: number; t1: number; text: string };
 
@@ -238,18 +244,46 @@ export const poseAt = (frame: number, fps: number, perf: Perf, labels: Array<key
   p.nod = pf.nd * 0.6 + pf.env * 0.12;
   p.tilt = sway * 0.28;
   p.yaw = glance * 0.22;
-  // 视线 = 真实轨迹（gz）+ 缓慢漂移（sway）+ 微扫视（saccade），三者叠加后才「像在看着人」
   const SACC = saccades(perf.frames.length);
   const sc = SACC[Math.min(frame, SACC.length - 1)] ?? [0, 0];
-  p.gazeX = clamp(pf.gz[0] * 1.6 + sway * 0.12 + sc[0] * 0.62, -1.15, 1.15);
-  p.gazeY = clamp((pf.gz[1] - 0.13) * 1.2 + sc[1] * 0.5, -1.0, 1.0);
 
-  // 眨眼：不等间隔 + 偶尔补眨（真人不会每 2 秒准时眨一次）。
-  // 上一版是写死的 4 个等距帧 [38,96,158,232]，节奏机械，是「看着像木偶」的来源之一。
-  p.blink = blinks(perf.frames.length).reduce((acc, e) => {
-    const v = interpolate(Math.abs(frame - e.f), [0, e.rate, e.rate + 4], [1, 1, 0], { extrapolateRight: 'clamp' });
-    return Math.max(acc, v * e.amp);
-  }, 0);
+  const mot = perf.motion;
+  if (mot?.gaze && mot.gaze.spans.length > 0) {
+    // 显式注视目标轨：目标由数据给出；微扫视与缓慢漂移仍叠加（它们是"活人感"
+    // 的微动作层，与目标选择无关）。旧路径的 pf.gz 不再参与。
+    const gz = gazeAt(frame, fps, mot.gaze);
+    p.gazeX = clamp(gz.x + sway * 0.12 + sc[0] * 0.62, -1.15, 1.15);
+    p.gazeY = clamp(gz.y + sc[1] * 0.5, -1.0, 1.0);
+  } else {
+    // 视线 = 真实轨迹（gz）+ 缓慢漂移（sway）+ 微扫视（saccade），三者叠加后才「像在看着人」
+    p.gazeX = clamp(pf.gz[0] * 1.6 + sway * 0.12 + sc[0] * 0.62, -1.15, 1.15);
+    p.gazeY = clamp((pf.gz[1] - 0.13) * 1.2 + sc[1] * 0.5, -1.0, 1.0);
+  }
+
+  if (mot?.blink && mot.blink.events.length > 0) {
+    // 显式眨眼事件表：节奏控制权在数据（可锁定/重播），不再用渲染器生成的隐式表
+    p.blink = blinkAt(frame, fps, mot.blink);
+  } else {
+    // 眨眼：不等间隔 + 偶尔补眨（真人不会每 2 秒准时眨一次）。
+    // 上一版是写死的 4 个等距帧 [38,96,158,232]，节奏机械，是「看着像木偶」的来源之一。
+    p.blink = blinks(perf.frames.length).reduce((acc, e) => {
+      const v = interpolate(Math.abs(frame - e.f), [0, e.rate, e.rate + 4], [1, 1, 0], { extrapolateRight: 'clamp' });
+      return Math.max(acc, v * e.amp);
+    }, 0);
+  }
+
+  if (mot?.head && mot.head.spans.length > 0) {
+    // 头部预备-跟随-收势：目标偏移由数据给出，叠加在正弦微动之上
+    const h = headAt(frame, fps, mot.head);
+    p.yaw = clamp(p.yaw + h.yaw, -1, 1);
+    p.tilt = clamp(p.tilt + h.tilt, -1, 1);
+    p.nod = p.nod + h.nod;
+  }
+
+  if (mot?.breath) {
+    // 呼吸相位：鼻呼吸嘴不张，只给 nod 一个限幅微沉浮（±BREATH_NOD_GAIN）
+    p.nod = p.nod + breathAt(frame, fps, mot.breath) * BREATH_NOD_GAIN;
+  }
 
   // 眼睑跟着视线走：往下看时上眼睑略垂、往上看时略抬（真人联动，只加 6~10%，不夸张）
   const g = p.gazeY;

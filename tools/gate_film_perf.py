@@ -204,13 +204,18 @@ def main():
         # 视线只切换一两次，「停留位置数」天然到不了 6 —— 按有效帧数降档，
         # 并明确打印降档原因，不神秘失败（2026-11-02 实测：1s 素材 span 10.7px
         # 过门槛但位置数 5 被误判）。
+        # 跨度门槛同规则降档（2026-11-03 标定）：短素材有效帧少（1s 片仅 15 帧，
+        # 一半被眨眼/转移过渡吃掉），实测跨度 4.83px 明显高于静止眼 1.5px、
+        # 处于"有视线"量级但到不了长片的 5.0px → 降为 3.5px（静止 1.5 与
+        # 满视线 9.6 的中点偏下），位置门槛维持 6→3 不变。
         pos_min = F2_POS_MIN if len(f2) >= 90 else max(2, F2_POS_MIN // 2)
-        if pos_min != F2_POS_MIN:
-            print('   [降档] 短素材（F2 有效 %d 帧 < 90）：停留位置门槛 %d → %d'
-                  % (len(f2), F2_POS_MIN, pos_min))
+        span_min = F2_SPAN_MIN if len(f2) >= 90 else 3.5
+        if pos_min != F2_POS_MIN or span_min != F2_SPAN_MIN:
+            print('   [降档] 短素材（F2 有效 %d 帧 < 90）：门槛 跨度 %.1f→%.1fpx / 位置 %d→%d'
+                  % (len(f2), F2_SPAN_MIN, span_min, F2_POS_MIN, pos_min))
         print('   F2 瞳孔在眼形里的偏心 跨度=%.2fpx 停留位置=%d  (门槛 ≥%.1fpx / ≥%d)'
-              % (span, pos, F2_SPAN_MIN, pos_min))
-        if span < F2_SPAN_MIN or pos < pos_min:
+              % (span, pos, span_min, pos_min))
+        if span < span_min or pos < pos_min:
             print('   ✗ F2 眼睛几乎不动 —— 视线没接到瞳孔上，或幅度不够')
             ok = False
     else:

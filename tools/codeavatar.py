@@ -181,8 +181,8 @@ def cmd_render(a):
 
 def cmd_say(a):
     """文本 → 表演合成 → 口播成片（阶段 3：确定性合成 + 诚实降级）。"""
-    req = json.dumps({'text': a.text, 'pinyin': a.pinyin, 'sps': a.sps},
-                     ensure_ascii=False)
+    req = json.dumps({'text': a.text, 'pinyin': a.pinyin, 'sps': a.sps,
+                      'motion': a.motion}, ensure_ascii=False)
     r = subprocess.run([sys.executable, TOOLS / 'say_perf.py'], input=req,
                        capture_output=True, text=True, encoding='utf-8', cwd=ROOT)
     if r.returncode != 0:
@@ -198,6 +198,8 @@ def cmd_say(a):
         print(f'  pinyin 模式：{len(perf["frames"])} 帧 / {perf["duration"]:.2f}s（音素视觉对应）')
     if a.coarticulate:
         perf['coarticulation'] = True
+    if a.motion and not perf.get('motion'):
+        raise SystemExit('--motion 生成的 perf 缺少 motion 轨（合成器未生效？）')
     props = {'char': a.key, 'layout': a.layout, 'bg': a.bg, 'perf': perf}
     out = Path(a.out).resolve()
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -258,6 +260,8 @@ def main():
                    help='输入是拼音音节序列（音素视觉对应）；缺省按中文估计节奏')
     s.add_argument('--sps', type=float, default=5.5, help='音节速率（每秒音节数，默认 5.5）')
     s.add_argument('--coarticulate', action='store_true', help='开启共发音时间曲线')
+    s.add_argument('--motion', action='store_true',
+                   help='开启低幅动作轨：注视目标/眨眼节奏/头部预备-跟随-收势/呼吸')
     s.add_argument('--layout', default='full', choices=['full', 'pip'])
     s.add_argument('--bg', default='#141117')
     s.set_defaults(fn=cmd_say)

@@ -10,6 +10,7 @@
 // 音频对齐器接口留待后续：届时以 aligned 模式接入，本文件规则仅作回退。
 import { Perf, PerfFrame } from './perf';
 import { Viseme } from './types';
+import type { MotionTrack } from './motion';
 
 export type SynthOptions = {
   fps?: number;
@@ -19,6 +20,10 @@ export type SynthOptions = {
   seed?: number;
   /** 输入是拼音音节序列（音素视觉对应）；缺省按中文逐字估计 */
   pinyin?: boolean;
+  /** 低幅动作轨（阶段 3 第 4 项）：显式开启才生成 Perf.motion
+   * （注视目标 / 眨眼节奏 / 头部预备-跟随-收势 / 呼吸）。缺省不生成——
+   * 已有产物的输出必须零漂移（硬纪律 #2）。 */
+  motion?: boolean;
 };
 
 export const DEFAULT_SPS = 5.5;
@@ -156,7 +161,10 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
       if (tail) {
         const maxPause = Math.max(...[...tail].map((p) => PAUSE[p] ?? 0.2));
         pushSilence(maxPause, true);
-        if (/[。！？!?…]/.test(tail)) endSentence(tail);
+        // 半角 '.' 也要切句（2026-11-03 修：中句 '.' 结尾时句子不切分，
+        // 说明句被并入下一句，intent/头部动作轨随之粘连——此前被末尾
+        // endSentence('.') 兜底掩盖，中句场景一直漏）
+        if (/[。！？!?.…]/.test(tail)) endSentence(tail);
       }
     }
   } else {
@@ -226,12 +234,69 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
     }),
   };
 
+  // 低幅动作轨（显式开关，阶段 3 第 4 项）。全部确定性：同文本同参数逐字节相同。
+  let motion: MotionTrack | undefined;
+  if (opts.motion) {
+    const total = frames.length;
+    // 眨眼节奏：首眨钳到素材内（0.5~1.3s，短句也不落空），之后间隔 0.9~2.0s、
+    // 28% 概率紧跟补眨（幅度略小）。素材 <0.5s 时无眨眼（诚实：眨不完一次）。
+    const blinkEvents: Array<{ t: number; amp: number; rate: number }> = [];
+    let bf = total > Math.round(0.5 * fps) + 8
+      ? Math.min((0.5 + rnd() * 0.8) * fps, total - 8)
+      : Infinity;
+    while (bf < total - 6) {
+      blinkEvents.push({ t: bf / fps, amp: 0.82 + rnd() * 0.18, rate: 2 + Math.floor(rnd() * 2) });
+      let nf = bf + (0.9 + rnd() * 1.1) * fps;
+      if (rnd() < 0.28 && bf + 12 < total - 6) {
+        blinkEvents.push({ t: (bf + 5 + Math.floor(rnd() * 3)) / fps, amp: 0.6 + rnd() * 0.25, rate: 2 });
+        nf += 16;
+      }
+      bf = nf;
+    }
+    // 注视目标：0.9~1.3s 窗口轮换；偶数窗看镜头，奇数窗看侧方。
+    // away 幅度不靠随机抽样（LCG 样本可能落在小幅度上，F2 瞳孔偏心判据就赌运气）：
+    // 方向左右交替、幅度 0.7~1.0 满档，垂直 ±0.4。系数 1.0 与 motion 路径对齐。
+    const gazeSpans: Array<{ t: number; t1: number; target: { x: number; y: number } }> = [];
+    let gf = 0;
+    let wi = 0;
+    while (gf < total) {
+      // 首窗固定 0.5s 看镜头（与旧 wander 的开场约定一致，短素材也能进轮换）
+      const w = wi === 0 ? Math.round(0.5 * fps) : Math.round((0.9 + rnd() * 0.4) * fps);
+      const a = gf, b = Math.min(total, gf + w);
+      const isAway = wi % 2 === 1;
+      const dir = wi % 4 === 1 ? -1 : 1;
+      gazeSpans.push({
+        t: a / fps, t1: b / fps,
+        target: isAway
+          ? { x: dir * (0.7 + rnd() * 0.3), y: (rnd() * 2 - 1) * 0.4 }
+          : { x: 0, y: 0 },
+      });
+      gf = b;
+      wi++;
+    }
+    // 头部：每句一个小动作——强调/疑问句点头（nod 0.5），其余句小幅侧倾（±0.2 交替）
+    const headSpans = sentences.map(({ a, b, punct }, i) => {
+      const emphatic = /[！!？?]/.test(punct);
+      return {
+        t: a / fps, t1: (b + 1) / fps,
+        ...(emphatic ? { nod: 0.5 } : { tilt: (i % 2 === 0 ? 1 : -1) * 0.2 }),
+      };
+    });
+    motion = {
+      blink: { events: blinkEvents },
+      gaze: { spans: gazeSpans },
+      head: { spans: headSpans },
+      breath: { bpm: 14 },
+    };
+  }
+
   return {
     fps,
     duration: frames.length / fps,
     frames,
     gestures,
     intent,
+    ...(motion ? { motion } : {}),
     meta: {
       mode: opts.pinyin ? 'pinyin' : 'estimated',
       ...(unknown.length ? { unknownChars: unknown } : {}),

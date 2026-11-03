@@ -67,6 +67,10 @@ python tools/codeavatar.py say no4 "da4 jia1 hao3! jin1 tian1 jiang3 kou3 xing2.
 python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
     -o out/talk.mp4                            # 中文：节奏估计（诚实降级，
                                                # perf.meta.mode=estimated，口型不保证对应发音）
+python tools/codeavatar.py say no4 "ni3 hao3!" \
+    -o out/talk.mp4 --pinyin --motion          # +低幅动作轨：注视目标/眨眼节奏/
+                                               # 头部预备-跟随-收势/呼吸（显式开启，
+                                               # 缺省关闭保证已验收角色零漂移）
 
 # 5) 有哪些角色
 python tools/codeavatar.py list
