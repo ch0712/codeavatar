@@ -92,7 +92,7 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
   const fps = opts.fps ?? DEFAULT_FPS;
   const sps = opts.sps ?? DEFAULT_SPS;
   const frames: PerfFrame[] = [];
-  const sentences: Array<[number, number]> = []; // [起帧, 末发音帧]
+  const sentences: Array<{ a: number; b: number; punct: string }> = []; // 起/末发音帧 + 句尾标点
   const unknown: string[] = [];
 
   const syllableFrames = Math.max(2, Math.round(fps / sps));
@@ -126,9 +126,9 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
     // 句尾收势由包络衰减承担（末帧 o≈0.31），无隐式强制
   };
 
-  const endSentence = () => {
+  const endSentence = (punct = '') => {
     if (curSentenceStart >= 0) {
-      sentences.push([curSentenceStart, frames.length - 1]);
+      sentences.push({ a: curSentenceStart, b: frames.length - 1, punct });
       curSentenceStart = -1;
     }
   };
@@ -156,7 +156,7 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
       if (tail) {
         const maxPause = Math.max(...[...tail].map((p) => PAUSE[p] ?? 0.2));
         pushSilence(maxPause, true);
-        if (/[。！？!?…]/.test(tail)) endSentence();
+        if (/[。！？!?…]/.test(tail)) endSentence(tail);
       }
     }
   } else {
@@ -168,7 +168,7 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
         const seconds = ch === lastChar ? 0 : PAUSE[ch];
         lastChar = ch;
         if (seconds > 0) pushSilence(seconds, true);
-        if ('。！？…'.includes(ch)) endSentence();
+        if ('。！？…'.includes(ch)) endSentence(ch);
         continue;
       }
       lastChar = '';
@@ -185,7 +185,7 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
       pushSilence(0.08, false);
     }
   }
-  endSentence();
+  endSentence('.');
 
   // 视线游移：确定性 LCG，停留 0.7~1.1s，3 帧缓动换目标
   const rnd = lcg(opts.seed ?? 20261102);
@@ -206,18 +206,32 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
 
   // 手势：每句一个窗口（起点略提前 2 帧，收在句末停顿前）
   const KINDS = ['open', 'point', 'circle', 'strike'];
-  const gestures = sentences.map(([a, b], i) => ({
+  const gestures = sentences.map(({ a, b }, i) => ({
     t: Math.max(0, a - 2) / fps,
     t1: (b + 1) / fps,
     kind: i === 0 ? 'open' : KINDS[i % KINDS.length],
     word: '',
   }));
 
+  // 意图轨（阶段 3）：句尾标点 → 意图；！强调(0.9) / ？疑问(0.8) / 其余说明(0.6)。
+  // 情绪由 intentEmotionAt 连续驱动（onset/hold/release），不再从手势类别间接映射。
+  const SENTENCE_INTENT: Record<string, { intent: '说明' | '强调' | '疑问'; k: number }> = {
+    '!': { intent: '强调', k: 0.9 }, '！': { intent: '强调', k: 0.9 },
+    '?': { intent: '疑问', k: 0.8 }, '？': { intent: '疑问', k: 0.8 },
+  };
+  const intent = {
+    spans: sentences.map(({ a, b, punct }) => {
+      const si = SENTENCE_INTENT[punct.slice(-1)] ?? { intent: '说明' as const, k: 0.6 };
+      return { t: a / fps, t1: (b + 1) / fps, intent: si.intent, intensity: si.k };
+    }),
+  };
+
   return {
     fps,
     duration: frames.length / fps,
     frames,
     gestures,
+    intent,
     meta: {
       mode: opts.pinyin ? 'pinyin' : 'estimated',
       ...(unknown.length ? { unknownChars: unknown } : {}),

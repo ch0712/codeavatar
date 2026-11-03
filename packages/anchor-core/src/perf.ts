@@ -2,6 +2,8 @@
 // 组装顺序：NEUTRAL（底子）→ MOODS[情绪] → VISEME[口型] → 该帧微动。
 import { interpolate } from 'remotion';
 import { MOODS, NEUTRAL, Pose, VISEME, Viseme } from './types';
+import { intentEmotionAt } from './intent';
+import type { IntentTrack } from './intent';
 
 export type PerfFrame = {
   m: Viseme;
@@ -24,6 +26,9 @@ export type Perf = {
   /** 合成来源标注（synthesizePerf 产物）：pinyin=音素视觉对应；estimated=中文逐字
    * 节奏估计，口型不保证对应发音。消费方应把 estimated 当作占位表演。 */
   meta?: { mode: 'pinyin' | 'estimated'; unknownChars?: string[] };
+  /** 意图轨（阶段 3）：存在时情绪由 intent → 效价/唤醒连续驱动（onset/hold/release），
+   * 覆盖 moodLabels/GESTURE_MOOD 旧路径；缺省走旧路径（已验收角色零漂移）。 */
+  intent?: IntentTrack;
 };
 export type Caption = { t0: number; t1: number; text: string };
 
@@ -194,16 +199,27 @@ const coarticulated = (frames: PerfFrame[]): MouthTarget[] => {
 };
 
 export const poseAt = (frame: number, fps: number, perf: Perf, labels: Array<keyof typeof MOODS>): Pose => {
-  const { from, to, w } = moodAt(frame, labels);
-  const mix = (a: number, b: number) => a + (b - a) * w;
   const pf: PerfFrame =
     perf.frames[Math.min(frame, perf.frames.length - 1)] ?? { m: 'M', o: 0, br: 0, nd: 0, g: 'none', env: 0, sp: 0, gz: [0, 0] };
 
   const p: Pose = { ...NEUTRAL };
-  p.brow = mix(moodBrow(from), moodBrow(to));
-  p.browIn = mix(moodBrowIn(from), moodBrowIn(to));
-  p.lid = mix(moodLid(from), moodLid(to));
-  p.smile = mix(moodSmile(from), moodSmile(to));
+  if (perf.intent && perf.intent.spans.length > 0) {
+    // 意图轨路径：情绪连续（onset/hold/release），意图缺省段回中性基线
+    const e = intentEmotionAt(frame, fps, perf.intent);
+    p.brow = e.brow;
+    p.browIn = e.browIn;
+    p.browAsym = e.browAsym;
+    p.lid = e.lid;
+    p.smile = e.smile;
+  } else {
+    // 旧路径：手势窗口映射情绪段 + 7 帧硬过渡（已验收角色零漂移）
+    const { from, to, w } = moodAt(frame, labels);
+    const mix = (a: number, b: number) => a + (b - a) * w;
+    p.brow = mix(moodBrow(from), moodBrow(to));
+    p.browIn = mix(moodBrowIn(from), moodBrowIn(to));
+    p.lid = mix(moodLid(from), moodLid(to));
+    p.smile = mix(moodSmile(from), moodSmile(to));
+  }
 
   // 口型：legacy = 逐帧硬切（零漂移默认路径）；coarticulation = 时间曲线（显式开启）
   const mouth: MouthTarget = perf.coarticulation

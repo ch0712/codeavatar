@@ -17,3 +17,7 @@ export type { Perf, PerfFrame, Caption } from './perf';
 
 // 文本 → 表演合成（阶段 3）：拼音模式音素对应 / 中文模式节奏估计（诚实标注）
 export { synthesizePerf, syllableViseme } from './speech';
+
+// 意图层（阶段 3）：意图 → 效价/唤醒 → 连续情绪偏移（onset/hold/release）
+export { intentEmotionAt, intentOffset, INTENT_VA, INTENT_RAMP } from './intent';
+export type { Intent, IntentSpan, IntentTrack, EmotionOffset } from './intent';
