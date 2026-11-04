@@ -257,6 +257,14 @@ export const FaceTraced: React.FC<{
   // 体现在开口高度上：O jaw=0.50 vs U jaw=0.14，正好是不混淆两者的判别维度。
   // 只乘在 fullLips 分支内（no1/no4 不进该分支，golden 零漂移）。
   const lipDropFL = FULL_LIPS ? lipDrop * (1 + 0.5 * Math.max(0, p.jaw)) : lipDrop;
+  // 口腔纵向拉伸系数：让唇形（高 lipH）恰好填满开口带（0.55·lipDropFL）——
+  // 消除大开口时「口腔够不到带底 → 露肤色弧缝」的断裂感（2026-11-04）
+  const kCav = FULL_LIPS ? Math.max(1, (0.55 * lipDropFL) / Math.max(1, lipH)) : 1;
+  // 开口深度（缝到开口带底）：下唇的弧形上边缘弯到这里
+  const lipOpenB = FULL_LIPS ? lipMid + 0.55 * lipDropFL : lipMid;
+  // 下唇纵向拉伸：可见下唇厚度目标 0.85·半唇高，拉伸量随开口深度增长
+  const lipHalf = FULL_LIPS ? Math.max(1, lipBot - lipMid) : 1;
+  const llScale = FULL_LIPS ? Math.max(1, (0.55 * lipDropFL + 0.85 * lipHalf) / lipHalf) : 1;
   // clipPath id 是文档级唯一：同页多实例（六格机检 6 个 FaceTraced）会互相解析到
   // 第一个实例的 defs —— 静态 rect 内容相同无害，动态 rect（随 pose 变）会全部错用
   // 第一格的裁剪框（实测 O/E/I/U 开口空隙全部消失）。useId 去掉冒号保 url(#) 可解析。
@@ -354,11 +362,25 @@ export const FaceTraced: React.FC<{
                       下唇/口腔的裁剪 y 必须用**最终坐标**动态算——
                       静态 lipMid 会把下沉让出的空隙又切掉（首版口腔永远不可见，2026-11-05） */}
                   <clipPath id={`${uid}-fl-up`}><rect x={0} y={0} width={W} height={Math.max(1, lipMid)} /></clipPath>
-                  <clipPath id={`${uid}-fl-dn`}><rect x={0} y={lipMid + 0.55 * lipDropFL} width={W} height={Math.max(1, H)} /></clipPath>
-                  <clipPath id={`${uid}-fl-cav`}><rect x={0} y={lipMid} width={W} height={Math.max(1, 0.55 * lipDropFL)} /></clipPath>
+                  {/* 下唇的可见上边缘 = **弧形**（嘴角在缝上、中间弯到开口深度），不是水平线：
+                      水平裁剪线会把唇拦腰切断，且口腔的透镜形侧边与直线之间必留肤色弧缝，
+                      下唇看起来「浮」在开口下面（2026-11-04 老板截图实锤）。
+                      二次贝塞尔 P0(左嘴角,缝) C(中,2B−缝) P2(右嘴角,缝) → 中点恰好 B。 */}
+                  <clipPath id={`${uid}-fl-dn`}>
+                    <path d={`M ${LIP.box[0]} ${H} L ${LIP.box[0]} ${lipMid} Q ${lipCx} ${2 * lipOpenB - lipMid} ${LIP.box[2]} ${lipMid} L ${LIP.box[2]} ${H} Z`} />
+                  </clipPath>
+                  {/* 口腔裁剪 = 与下唇上边缘**同一条弧线**围成的透镜区（缝为弦、弧底 B）：
+                      口腔与下唇共享边界 → 零缝隙；透镜角不超出弧线 → 嘴角外无黑翼 */}
+                  <clipPath id={`${uid}-fl-cav`}>
+                    <path d={`M ${LIP.box[0]} ${lipMid} Q ${lipCx} ${2 * lipOpenB - lipMid} ${LIP.box[2]} ${lipMid} Z`} />
+                  </clipPath>
                   <clipPath id={`${uid}-fl-seam`}><rect x={0} y={lipMid - 6} width={W} height={12} /></clipPath>
                 </defs>
-                {/* 口腔：唇形整体下移到缝，只露「缝→下唇顶」的空隙带。
+                {/* 口腔：唇形下移到缝，纵向拉伸 kCav 恰好填满「缝→下唇顶」的开口带。
+                    ⚠ kCav 必须随开口带高度增长：原版只平移 (lipMid−lipTop)，形状高 lipH，
+                    大开口时开口带（0.55·lipDropFL）超过 lipH → 底部露出肤色弧缝，
+                    下唇看起来「浮」在口腔下面（老板 2026-11-04 截图实锤）。
+                    y' = lipMid + kCav·(y−lipTop)：顶边恒贴缝、底边 ≥ 开口带底（fl-cav 兜底裁掉）。
                     ⚠ 不加红调、色用 #2D150F：量具（gate_mouth）的口腔判据是 R<140，
                     腔/唇边界的 AA 混合行必须仍落在判据内，否则每格被拆成
                     「上唇/牙/腔+下唇」多个连通块，开口高度进不了 bbox
@@ -366,7 +388,7 @@ export const FaceTraced: React.FC<{
                 {open > 0.12 && (
                   <g clipPath={`url(#${uid}-fl-cav)`}>
                     <path d={LIP.d} fill="#2D150F" opacity={Math.min(1, open * 2)}
-                          transform={`translate(0 ${lipMid - lipTop})`} />
+                          transform={`translate(0 ${lipMid - kCav * lipTop}) scale(1 ${kCav})`} />
                   </g>
                 )}
                 {/* 上排牙：唇形横向收到 0.68、纵向压扁 0.40，锚在缝上。
@@ -376,10 +398,12 @@ export const FaceTraced: React.FC<{
                   <path d={LIP.d} fill="#E9E1D3" opacity={teethAlpha}
                         transform={`translate(${lipCx} ${lipMid}) scale(0.68 0.40) translate(${-lipCx} ${-lipMid})`} />
                 )}
-                {/* 下唇：下沉 0.55·lipDropFL + 纵向拉伸；裁剪只留移动后位于缝下方的部分 */}
+                {/* 下唇：唇形下半部（被弧形裁剪线切出自然上边缘）+ 纵向拉伸
+                    （可见厚度≈0.85·半唇高，拉伸量随开口深度增长，保证口腔下方始终有唇体）。
+                    无需平移：弧线决定上边缘，唇形下部自然成为唇体。 */}
                 <g clipPath={`url(#${uid}-fl-dn)`}>
                   <path d={LIP.d} fill={LIP.hex} stroke={LIP.hex} strokeWidth={1.2} strokeLinejoin="round"
-                        transform={`translate(0 ${0.55 * lipDropFL}) translate(${lipCx} ${lipMid}) scale(1 ${1 + Math.min(1, open) * 0.25}) translate(${-lipCx} ${-lipMid})`} />
+                        transform={`translate(${lipCx} ${lipMid}) scale(1 ${llScale}) translate(${-lipCx} ${-lipMid})`} />
                 </g>
                 {/* 上唇：缝以上裁出，固定不动 */}
                 <g clipPath={`url(#${uid}-fl-up)`}>
