@@ -22,6 +22,19 @@ export type PresenterProps = {
   /** Pose 直通（阶段 1/2）：给出时覆盖该字段，叠加在 perf 求值结果之上。
    * 16 参数直接可控（第三方集成/契约边界值回归用）；缺省 undefined = 零漂移。 */
   pose?: Partial<Pose>;
+  /** 2.5D 深度分层原型（阶段 4 A/B）：true 或 {gain} 开启层视差 + 遮挡排序；
+   * 缺省 undefined = 旧平面路径零漂移。 */
+  depth?: boolean | { gain?: number };
+  /** 镜头景别预设（阶段 4）：作用于 full 布局的缩放倍率与纵向锚点。
+   * 'full'（缺省）= 现状零漂移；medium ≈ 胸上景别；closeup ≈ 头肩特写。 */
+  shot?: 'full' | 'medium' | 'closeup';
+};
+
+/** 景别预设：缩放倍率（乘在自适应 scale 上）与画布中心纵向锚点。 */
+export const SHOT_PRESETS: Record<NonNullable<PresenterProps['shot']>, { zoom: number; anchorY: number }> = {
+  full: { zoom: 1, anchorY: 0.45 },
+  medium: { zoom: 1.35, anchorY: 0.62 },
+  closeup: { zoom: 1.9, anchorY: 0.72 }, // 0.78 实测嘴贴底缘出画（lip 中心 y≈846>1080×0.75）
 };
 
 const PipClip: React.FC<{ children: React.ReactNode; size: number }> = ({ children, size }) => (
@@ -57,7 +70,7 @@ export const Presenter: React.FC<PresenterProps> = (allProps) => {
     bg = '#141117',
     captions,
     captionStyle,
-    anchorY = 0.45,
+    anchorY: anchorYProp,
   } = allProps;
   const perf = allProps.perf ?? asPerf(allProps);
   const frame = useCurrentFrameSafe();
@@ -69,7 +82,14 @@ export const Presenter: React.FC<PresenterProps> = (allProps) => {
   };
   const data = CHARS[char];
 
-  const head = <FaceTraced pose={pose} data={data} transparentBg />;
+  const head = (
+    <FaceTraced
+      pose={pose}
+      data={data}
+      transparentBg
+      depth={allProps.depth ? (allProps.depth === true ? {} : allProps.depth) : undefined}
+    />
+  );
 
   if (layout === 'pip') {
     const size = 320;
@@ -94,14 +114,18 @@ export const Presenter: React.FC<PresenterProps> = (allProps) => {
 
   // full：按画幅自适应缩放（此前 scale=1 在 1920x1080 下嘴部出画，lipBox y≈1014–1042
   // 落在 1080 之外——口播成片必须看得到嘴）。anchorY = 角色画布中心在画面里的纵向位置。
-  const scale = Math.min(vw / CANVAS_W, vh / CANVAS_H);
+  // 景别预设（阶段 4）：shot 缺省 'full' → zoom=1 / anchorY=0.45，与现状逐位一致。
+  const preset = SHOT_PRESETS[allProps.shot ?? 'full'];
+  const scale = Math.min(vw / CANVAS_W, vh / CANVAS_H) * preset.zoom;
+  // 显式 anchorY 优先于景别预设（兼容既有直传）
+  const ay = anchorYProp ?? preset.anchorY;
   return (
     <AbsoluteFill style={{ background: bg }}>
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          top: `${anchorY * 100}%`,
+          top: `${ay * 100}%`,
           width: CANVAS_W * scale,
           height: CANVAS_H * scale,
           transform: `translate(-50%, -50%)`,

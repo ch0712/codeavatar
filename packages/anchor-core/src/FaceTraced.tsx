@@ -2,6 +2,7 @@
 import React from 'react';
 import { Pose } from './types';
 import { CHARACTER_DATA, CharacterKey } from './chars';
+import { parallaxFor, orderByDepth, DEPTH_GAIN } from './depth';
 
 /**
  * 由设定稿「描」出来的主播脸 —— 几何来自设计稿本身（tools/trace_design.py）。
@@ -65,10 +66,18 @@ const scaleHex = (hex: string, k: [number, number, number]): string => {
 const lum = (h: string) =>
   0.299 * parseInt(h.slice(1, 3), 16) + 0.587 * parseInt(h.slice(3, 5), 16) + 0.114 * parseInt(h.slice(5, 7), 16);
 
-export const FaceTraced: React.FC<{ pose: Pose; data: CharData; transparentBg?: boolean }> = ({
+export const FaceTraced: React.FC<{
+  pose: Pose;
+  data: CharData;
+  transparentBg?: boolean;
+  /** 2.5D 深度分层原型开关（阶段 4 A/B）：给出时按层深度做视差位移 + 遮挡排序。
+   * 缺省 undefined = 旧平面路径，逐字节零漂移。 */
+  depth?: { gain?: number };
+}> = ({
   pose,
   data,
   transparentBg,
+  depth,
 }) => {
   const p = pose;
   const [W, H] = data.canvas;
@@ -233,7 +242,11 @@ export const FaceTraced: React.FC<{ pose: Pose; data: CharData; transparentBg?: 
     );
   };
 
-  const bodyLayers = LAYERS.filter((l) => !isMouthLayer(l));
+  // 2.5D 原型：仅**转头时**按深度重排（近层后画 = 自然遮挡）。
+  // 正视（yaw≈0）保持原始层序——顺序变化本身会带来 1px 级抗锯齿差异，
+  // 正视必须逐字节零漂移（A/B 断言要求）。
+  const bodyLayersRaw = LAYERS.filter((l) => !isMouthLayer(l));
+  const bodyLayers = depth && Math.abs(p.yaw) > 1e-6 ? orderByDepth(bodyLayersRaw) : bodyLayersRaw;
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" style={{ display: 'block' }}>
@@ -273,7 +286,18 @@ export const FaceTraced: React.FC<{ pose: Pose; data: CharData; transparentBg?: 
 
       <g transform={headT}>
         {/* 全身/脸：只画一遍。上一版把下半脸裁出来画第二遍 → 中间漏缝成黑线、肩膀被裁掉 */}
-        {bodyLayers.map(renderBody)}
+        {bodyLayers.map((l) => {
+          const el = renderBody(l);
+          if (!el || !depth) return el;
+          // 2.5D 原型：按层深度给视差位移（近层位移大）；yaw=0 时位移为 0
+          const pr = parallaxFor(l.role, p.yaw, depth.gain ?? DEPTH_GAIN);
+          if (pr.dx === 0 && pr.dy === 0) return el;
+          return (
+            <g key={`${l.id}-d`} transform={`translate(${pr.dx} ${pr.dy})`}>
+              {el}
+            </g>
+          );
+        })}
 
         {/* 鼻子：设定稿里描摹丢失的那一层，按唇框比例补回**一层柔影**（无鼻孔、无高光件）。
             静态几何，不参与表情/下颌。 */}

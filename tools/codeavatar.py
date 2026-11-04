@@ -244,6 +244,8 @@ def validate_perf_or_exit(perf, source):
 
 def cmd_render(a):
     props = {'char': a.key, 'layout': a.layout, 'bg': a.bg}
+    if getattr(a, 'shot', 'full') != 'full':
+        props['shot'] = a.shot
     if a.props:
         with Path(a.props).resolve().open(encoding='utf-8') as f:
             loaded = json.load(f)
@@ -394,6 +396,9 @@ def main():
     r.add_argument('-o', '--out', required=True)
     r.add_argument('--props', help='表演数据 JSON（perf / captions / audio）')
     r.add_argument('--layout', default='full', choices=['full', 'pip'])
+    r.add_argument('--shot', default='full', choices=['full', 'medium', 'closeup'],
+                   help='镜头景别预设（构图）：full 全身 / medium 中景 / closeup 特写。'
+                        '缺省 full 保持既有输出零漂移')
     r.add_argument('--bg', default='#141117')
     r.add_argument('--coarticulate', action='store_true',
                    help='口型共发音时间曲线（相邻口型平滑过渡+预塑形）。'

@@ -37,3 +37,7 @@ export type {
 // 动作单元与角色风格协调（阶段 3）：原子动作构造器 + 增益/开关/耦合/锁定
 export { units, applyMotionStyle } from './style';
 export type { MotionStyle } from './style';
+
+// 2.5D 深度分层原型（阶段 4 A/B）：层深度表 + 视差 + 遮挡排序
+export { DEPTH_BY_ROLE, DEPTH_GAIN, parallaxFor, orderByDepth } from './depth';
+export type { Parallax } from './depth';

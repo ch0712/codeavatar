@@ -37,6 +37,7 @@ jobs:
       - run: python tools/coartic_check.py packages/anchor-core/scripts/motion-check.ts
       - run: python tools/coartic_check.py packages/anchor-core/scripts/style-check.ts
       - run: python tools/coartic_check.py packages/anchor-core/scripts/schema-check.ts
+      - run: python tools/coartic_check.py packages/anchor-core/scripts/depth-check.ts
       - run: python tools/cli_check.py
       # 身份回归：15 张固定表演静帧（中性/情绪/意图/六口型极值/视角/契约边界值）
       # 结构 + 可分性；golden 字节比对待跨平台确定性验证一轮后收紧

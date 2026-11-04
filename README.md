@@ -101,6 +101,13 @@ python tools/codeavatar.py say no4 "ni3 hao3!" \
 #   → out/perf.json 后用 render --props 消费；style 里给出 locked 轨可
 #   整条替换自动生成的动作（锁定），同参数同 seed 逐字节重播。
 
+# 4c) 镜头景别（构图预设，显式开启，缺省 full 零漂移）
+#   --shot full    全身（zoom 1.0，anchorY 0.45）
+#   --shot medium  中景（zoom 1.35，anchorY 0.62）
+#   --shot closeup 特写（zoom 1.9，anchorY 0.72）
+#   也可在 Renderer props 直接传 shot="medium" 或自定义 zoom/anchorY。
+python tools/codeavatar.py render no4 -o out/medium.mp4 --props examples/perf.json --shot medium
+
 # 5) 有哪些角色
 python tools/codeavatar.py list
 ```
