@@ -40,6 +40,8 @@ tools/                    Python toolchain
   cli_check.py              CLI exit-code / dry-run / structured-output assertions
   eval_kit.py               human-eval kit builder (6 blind-ordered clips / questionnaire / key)
   eval_score.py             human-eval aggregation and protocol verdict
+  tts.py                    TTS audio (edge-tts default / pyttsx3 offline fallback)
+  tts_volc.py               Volcengine Doubao TTS 2.0 (word timestamps for aligned mode)
   codeavatar.py             unified CLI
 studio/                   Remotion project (talking-head output)
 docs/SPEC.md              hard spec for reference sheets (with negative list)
@@ -108,6 +110,18 @@ python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
                                                # duration and muxes it (first-order
                                                # total-duration alignment, not per-phoneme;
                                                # pass --no-align to disable)
+
+# 4b++) per-character alignment (recommended): the upstream supplies word timestamps,
+# so the mouth lands on the real speech moments
+python tools/tts_volc.py "今天讲一下口型同步的具体做法。" -o out/tts-volc   # Volcengine Doubao TTS
+python tools/codeavatar.py say no4 "jin1 tian1 jiang3 yi2 xia4 kou3 xing2 tong2 bu4 de5 ju4 ti3 zuo4 fa3." \
+    -o out/talk.mp4 --pinyin --motion --coarticulate \
+    --audio out/tts-volc/voice.mp3 --words out/tts-volc/words.json
+#   --words selects aligned mode: frame positions come from seconds, not from an
+#   average speech rate; the mouth stays closed before the first word and in gaps,
+#   and sentence-final punctuation drives the intent track. The pinyin must match
+#   the spoken text syllable by syllable (a count mismatch is a hard error).
+#   Credentials are read only from VOLC_TTS_API_KEY or a repo-root .volc.env (not committed).
 python tools/codeavatar.py say no4 "ni3 hao3!" \
     -o out/talk.mp4 --pinyin --motion          # + low-amplitude motion tracks: gaze target /
                                                # blink rhythm / head anticipation-follow-settle /

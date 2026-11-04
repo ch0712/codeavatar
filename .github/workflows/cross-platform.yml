@@ -38,6 +38,7 @@ jobs:
       - run: python tools/coartic_check.py packages/anchor-core/scripts/style-check.ts
       - run: python tools/coartic_check.py packages/anchor-core/scripts/schema-check.ts
       - run: python tools/coartic_check.py packages/anchor-core/scripts/depth-check.ts
+      - run: python tools/coartic_check.py packages/anchor-core/scripts/aligned-check.ts
       - run: python tools/repo_hygiene.py docs
       - run: python tools/cli_check.py
       # 身份回归：15 张固定表演静帧（中性/情绪/意图/六口型极值/视角/契约边界值）

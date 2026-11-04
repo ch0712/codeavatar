@@ -300,18 +300,88 @@ def probe_duration(path):
         return None
 
 
+PUNCT_CHARS = '，。！？；：、,.!?;:…—'
+
+
+def _is_cjk(ch):
+    return '\u4e00' <= ch <= '\u9fff'
+
+
+def build_timings(words_path, text, pinyin):
+    """words.json（火山字级时间戳）→ aligned timings。
+
+    规约：字级时间戳由上游给出，**不做估算校正**（meta.estimated=false 的产物）。
+    标点归给前一个发音单元：pinyin 模式按 token 尾标点，中文模式按字符扫描。
+    音节数与时间戳数不一致就报错——不猜、不截断。
+    """
+    data = json.loads(Path(words_path).read_text(encoding='utf-8'))
+    if isinstance(data, dict):
+        data = data.get('segments') or []
+    flat = []
+    for seg in data:
+        for w in seg.get('words') or []:
+            flat.append({'ch': w['w'], 's': float(w['s']), 'e': float(w['e'])})
+    if not flat:
+        raise SystemExit(f'{words_path} 里没有字级时间戳（上游没开 enable_timestamp？）')
+
+    units, punct_of = [], []
+    if pinyin:
+        for tok in text.split():
+            syl = ''.join(c for c in tok if c.isalpha() or c == 'ü')
+            if not syl:
+                continue
+            units.append(syl)
+            punct_of.append(''.join(c for c in tok if not (c.isalnum() or c == 'ü')))
+    else:
+        for ch in text:
+            if _is_cjk(ch):
+                units.append(ch)
+                punct_of.append('')
+            elif ch in PUNCT_CHARS and punct_of:
+                punct_of[-1] += ch
+
+    if len(units) != len(flat):
+        raise SystemExit(
+            f'音节数与字级时间戳数不一致：文本 {len(units)} 个发音单元 vs '
+            f'时间戳 {len(flat)} 个。aligned 模式要求两者一一对应'
+            '（拼音文本请确认与念稿完全一致，含声调数字）')
+
+    timings = []
+    for u, w, p in zip(units, flat, punct_of):
+        tk = {'s': round(w['s'], 3), 'e': round(w['e'], 3)}
+        if pinyin:
+            tk['syl'] = u
+        if p:
+            tk['punct'] = p
+        timings.append(tk)
+    return timings
+
+
 def cmd_say(a):
     """文本 → 表演合成 → 口播成片（阶段 3：确定性合成 + 诚实降级）。"""
     say_info = (lambda s: sys.stderr.write(s + '\n')) if getattr(a, 'json_out', False) else print
+    if getattr(a, 'words', None) and not getattr(a, 'audio', None):
+        raise SystemExit('--words 需要同时给 --audio（字级时间戳必须对应一条真实音轨）')
     # --audio 音轨对齐：音节速率改由音频实测时长反推（总时长一阶对齐，
     # 非逐音素对齐——口型与音频的逐字对齐是上游能力，当前不承诺）
     audio_path = None
     sps = a.sps
+    timings = None
+    audio_duration = None
     if getattr(a, 'audio', None):
         audio_path = Path(a.audio).resolve()
         if not audio_path.is_file():
             raise SystemExit(f'--audio 文件不存在: {audio_path}')
-        if getattr(a, 'no_align', False):
+        if getattr(a, 'words', None):
+            # aligned 模式：口型逐字落在真实发音时刻，不需要语速估计，也不修剪
+            # 静音（上游时间戳自带起点，帧从 0 开始闭唇等首字）
+            timings = build_timings(a.words, a.text, a.pinyin)
+            audio_duration = probe_duration(audio_path)
+            if not audio_duration:
+                raise SystemExit('--audio 无法读取时长（ffprobe 失败？）')
+            say_info(f'  aligned 模式：{len(timings)} 个发音单元逐字对齐，'
+                     f'音轨 {audio_duration:.2f}s（时间戳由上游给出，不再估算）')
+        elif getattr(a, 'no_align', False):
             dur = probe_duration(audio_path)
             say_info(f'  --audio 已关闭对齐：沿用 --sps {sps}，音画时长可能不一致')
         else:
@@ -343,7 +413,9 @@ def cmd_say(a):
             say_info(f'  音频对齐：修剪首尾静音 {raw_dur:.2f}s → {dur:.2f}s，'
                      f'{n} 音节 → sps={sps}（总时长一阶对齐，非逐音素）')
     req = json.dumps({'text': a.text, 'pinyin': a.pinyin, 'sps': sps,
-                      'motion': a.motion}, ensure_ascii=False)
+                      'motion': a.motion,
+                      **({'timings': timings, 'duration': audio_duration}
+                         if timings else {})}, ensure_ascii=False)
     r = subprocess.run([sys.executable, TOOLS / 'say_perf.py'], input=req,
                        capture_output=True, text=True, encoding='utf-8', cwd=ROOT)
     if r.returncode != 0:
@@ -498,6 +570,9 @@ def main():
                                    '配 --no-align 可关闭对齐')
     s.add_argument('--no-align', action='store_true',
                    help='--audio 时不对齐音节速率（只混流）')
+    s.add_argument('--words', help='字级时间戳 words.json（如 tools/tts_volc.py 产物）：'
+                                   '给出后走 aligned 模式，口型逐字落在真实发音时刻；'
+                                   '需同时给 --audio')
     s.add_argument('--bg', default='#141117')
     s.set_defaults(fn=cmd_say)
 

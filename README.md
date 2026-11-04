@@ -42,6 +42,8 @@ tools/                    Python 工具链
   cli_check.py              CLI 退出码/dry-run/结构化输出场景断言
   eval_kit.py               人评评审包生成（6 段盲序/问卷页/密钥）
   eval_score.py             人评汇总与协议判定线
+  tts.py                    TTS 音轨（edge-tts 缺省 / pyttsx3 离线兜底）
+  tts_volc.py               火山豆包 TTS 2.0（字级时间戳，供 aligned 模式）
   codeavatar.py             统一 CLI
 studio/                   Remotion 工程（口播成片输出）
 docs/SPEC.md              设定稿硬规格（含负面清单）
@@ -104,6 +106,15 @@ python tools/tts.py "大家好，今天讲口型。" -o out/tts.mp3
 python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
     -o out/talk.mp4 --audio out/tts.mp3        # 自动按音频时长对齐音节速率并混流
                                                # （总时长一阶对齐，非逐音素；配 --no-align 关闭对齐）
+
+# 4b++) 逐字对齐（推荐）：上游给字级时间戳，口型落在真实发音时刻
+python tools/tts_volc.py "今天讲一下口型同步的具体做法。" -o out/tts-volc   # 火山豆包 TTS
+python tools/codeavatar.py say no4 "jin1 tian1 jiang3 yi2 xia4 kou3 xing2 tong2 bu4 de5 ju4 ti3 zuo4 fa3." \
+    -o out/talk.mp4 --pinyin --motion --coarticulate \
+    --audio out/tts-volc/voice.mp3 --words out/tts-volc/words.json
+#   --words 走 aligned 模式：帧位置由秒换帧（不用平均语速），首字前闭唇等音，
+#   字间空档闭唇，句末标点驱动意图轨。拼音与念稿必须逐音节一致（数量不符直接报错）。
+#   凭据只从 VOLC_TTS_API_KEY 或仓库根 .volc.env 读，不入库。
 python tools/codeavatar.py say no4 "ni3 hao3!" \
     -o out/talk.mp4 --pinyin --motion          # +低幅动作轨：注视目标/眨眼节奏/
                                                # 头部预备-跟随-收势/呼吸（显式开启，

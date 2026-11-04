@@ -30,6 +30,13 @@ export type SynthOptions = {
    * 给出即隐含 motion: true（风格没有对象就不成立）；空 style 应用后
    * 与纯 motion 产物逐字段相等。 */
   style?: MotionStyle;
+  /** 对齐模式：真实字级时间戳（火山 TTS 等上游给出），单位秒。
+   * 给出即走 aligned 分支——口型落在真实发音时刻，不再按平均语速摊。
+   * 缺省不启用（默认路径零漂移）。syl 是可选拼音音节（有则音素视觉对应）。 */
+  timings?: Array<{ s: number; e: number; syl?: string; punct?: string }>;
+  /** 音轨总时长（秒）：aligned 模式下把静音尾巴补足到音频结束，
+   * 保证成片与音轨等长。缺省按末字 endTime 收尾。 */
+  duration?: number;
 };
 
 export const DEFAULT_SPS = 5.5;
@@ -120,8 +127,8 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
     }
   };
 
-  const pushSyllable = (viseme: Viseme, closedOnset: boolean, stress: boolean) => {
-    const n = syllableFrames;
+  const pushSyllable = (viseme: Viseme, closedOnset: boolean, stress: boolean,
+                        n: number = syllableFrames) => {
     const onsetN = closedOnset && n >= 4 ? 2 : 0;
     const first = frames.length;
     for (let i = 0; i < n; i++) {
@@ -144,7 +151,37 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
     }
   };
 
-  if (opts.pinyin) {
+  const CYCLE: Viseme[] = ['A', 'O', 'E', 'I', 'U'];
+
+  if (opts.timings && opts.timings.length) {
+    // ---- aligned 模式：真实字级时间戳（火山 TTS 等上游产物） ----
+    // 帧位置直接由秒换帧，不参与平均语速模型；字间空档闭唇（不臆造呼吸）。
+    // 有 syl 则音素视觉对应，无 syl 则按码点确定性轮转（诚实：音素不对应）。
+    const timings = opts.timings;
+    for (const tk of timings) {
+      // 帧窗由**绝对时刻**决定（round(s*fps) .. round(e*fps)），不是
+      // 「每字 round((e-s)*fps) 帧」—— 后者每字都会把 0.19s 抬成 6 帧（0.2s），
+      // 19 字累计超前约 6 帧（0.2s），长文本越说越早。这里先截掉上一字的
+      // 溢出帧再补静音，保证每字都精确落在自己的结束帧。
+      const startF = Math.round(tk.s * fps);
+      const endF = Math.round(tk.e * fps);
+      if (frames.length > startF) frames.length = startF;
+      while (frames.length < startF) frames.push(mkFrame('M', 0));
+      const n = Math.max(1, endF - startF);
+      const stress = /[!！?？]/.test(tk.punct ?? '');
+      const sv = tk.syl ? syllableViseme(tk.syl) : null;
+      if (sv === null) {
+        const key = tk.syl ?? '·';
+        pushSyllable(CYCLE[key.codePointAt(0)! % CYCLE.length], false, stress, n);
+      } else {
+        pushSyllable(sv.viseme, sv.closedOnset, stress, n);
+      }
+      if (tk.punct) endSentence(tk.punct);
+    }
+    const tail = opts.duration ?? timings[timings.length - 1].e;
+    const total = Math.max(frames.length, Math.round(tail * fps));
+    while (frames.length < total) frames.push(mkFrame('M', 0));
+  } else if (opts.pinyin) {
     // ---- 拼音模式：音素视觉对应 ----
     const tokens = text.trim().split(/\s+/).filter(Boolean);
     for (const tok of tokens) {
@@ -308,7 +345,9 @@ export const synthesizePerf = (text: string, opts: SynthOptions = {}): Perf => {
     intent,
     ...(motion ? { motion } : {}),
     meta: {
-      mode: opts.pinyin ? 'pinyin' : 'estimated',
+      mode: opts.timings && opts.timings.length
+        ? 'aligned'
+        : opts.pinyin ? 'pinyin' : 'estimated',
       ...(unknown.length ? { unknownChars: unknown } : {}),
     },
   };

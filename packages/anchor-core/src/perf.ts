@@ -26,8 +26,9 @@ export type Perf = {
    * 默认关闭——已验收角色的输出必须零漂移（硬纪律 #2），显式开启才生效。 */
   coarticulation?: boolean;
   /** 合成来源标注（synthesizePerf 产物）：pinyin=音素视觉对应；estimated=中文逐字
-   * 节奏估计，口型不保证对应发音。消费方应把 estimated 当作占位表演。 */
-  meta?: { mode: 'pinyin' | 'estimated'; unknownChars?: string[] };
+   * 节奏估计，口型不保证对应发音；aligned=上游给了字级时间戳，口型落在真实发音
+   * 时刻（有拼音则音素对应，无拼音则仍为占位口型但时序真实）。 */
+  meta?: { mode: 'pinyin' | 'estimated' | 'aligned'; unknownChars?: string[] };
   /** 意图轨（阶段 3）：存在时情绪由 intent → 效价/唤醒连续驱动（onset/hold/release），
    * 覆盖 moodLabels/GESTURE_MOOD 旧路径；缺省走旧路径（已验收角色零漂移）。 */
   intent?: IntentTrack;
