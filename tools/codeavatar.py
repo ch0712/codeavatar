@@ -287,9 +287,45 @@ def cmd_render(a):
         print(f'  成片: {out}')
 
 
+def probe_duration(path):
+    """媒体时长（秒，ffprobe 实测）；读取失败返回 None。"""
+    r = subprocess.run(
+        ['ffprobe', '-v', 'error', '-show_entries', 'format=duration',
+         '-of', 'default=nw=1:nk=1', str(path)],
+        capture_output=True, text=True,
+    )
+    try:
+        return float(r.stdout.strip())
+    except (ValueError, AttributeError):
+        return None
+
+
 def cmd_say(a):
     """文本 → 表演合成 → 口播成片（阶段 3：确定性合成 + 诚实降级）。"""
-    req = json.dumps({'text': a.text, 'pinyin': a.pinyin, 'sps': a.sps,
+    say_info = (lambda s: sys.stderr.write(s + '\n')) if getattr(a, 'json_out', False) else print
+    # --audio 音轨对齐：音节速率改由音频实测时长反推（总时长一阶对齐，
+    # 非逐音素对齐——口型与音频的逐字对齐是上游能力，当前不承诺）
+    audio_path = None
+    sps = a.sps
+    if getattr(a, 'audio', None):
+        audio_path = Path(a.audio).resolve()
+        if not audio_path.is_file():
+            raise SystemExit(f'--audio 文件不存在: {audio_path}')
+        dur = probe_duration(audio_path)
+        if not dur or dur <= 0:
+            raise SystemExit('--audio 无法读取时长（ffprobe 失败？）')
+        if getattr(a, 'no_align', False):
+            say_info(f'  --audio 已关闭对齐：沿用 --sps {sps}，音画时长可能不一致')
+        else:
+            if a.pinyin:
+                n = len(a.text.split())
+            else:
+                n = sum(1 for c in a.text
+                        if not c.isspace() and c not in '，。！？!?.…、；：,;:')
+            sps = max(1.0, round(n / dur, 2))
+            say_info(f'  音频对齐：{n} 音节 / {dur:.2f}s → sps={sps}'
+                     '（总时长一阶对齐，非逐音素）')
+    req = json.dumps({'text': a.text, 'pinyin': a.pinyin, 'sps': sps,
                       'motion': a.motion}, ensure_ascii=False)
     r = subprocess.run([sys.executable, TOOLS / 'say_perf.py'], input=req,
                        capture_output=True, text=True, encoding='utf-8', cwd=ROOT)
@@ -300,7 +336,6 @@ def cmd_say(a):
     validate_perf_or_exit(perf, 'say 合成产物（内部错误，请反馈）')
     meta = perf.get('meta') or {}
     # stdout/stderr 分离（§8）：--json 时 stdout 只留机器可读结果，诊断走 stderr
-    say_info = (lambda s: sys.stderr.write(s + '\n')) if getattr(a, 'json_out', False) else print
     if meta.get('mode') == 'estimated':
         unk = ''.join(meta.get('unknownChars') or [])
         say_info('  ⚠ estimated 模式：中文逐字节奏估计，口型不保证对应发音；'
@@ -324,12 +359,25 @@ def cmd_say(a):
             print(f'  [dry-run] 合成与校验通过，未渲染。目标: {out}')
         return
     out.parent.mkdir(parents=True, exist_ok=True)
+    # 有音轨时先渲无声片到临时文件，再与音频混流到最终路径
+    render_target = out
+    if audio_path is not None:
+        render_target = out.with_name(out.stem + '.silent' + out.suffix)
     props_file = write_props_file(props)
     try:
-        remotion('render', 'TalkClip', out, '--props', props_file,
+        remotion('render', 'TalkClip', str(render_target), '--props', props_file,
                  '--concurrency=1', '--log=error')
     finally:
         props_file.unlink(missing_ok=True)
+    if audio_path is not None:
+        subprocess.run(
+            ['ffmpeg', '-y', '-v', 'error', '-i', str(render_target),
+             '-i', str(audio_path), '-c:v', 'copy', '-c:a', 'aac',
+             '-b:a', '128k', '-shortest', str(out)],
+            check=True)
+        render_target.unlink(missing_ok=True)
+        dur_v = probe_duration(out)
+        say_info(f'  音轨已混入（{audio_path.name}），成片时长 {dur_v:.2f}s')
     if getattr(a, 'json_out', False):
         print(json.dumps({'ok': True, 'out': str(out),
                           'frames': len(perf['frames']),
@@ -428,6 +476,11 @@ def main():
     s.add_argument('--layout', default='full', choices=['full', 'pip'])
     s.add_argument('--shot', default='full', choices=['full', 'medium', 'closeup'],
                    help='镜头景别预设（构图）：缺省 full 保持既有输出零漂移')
+    s.add_argument('--audio', help='音轨文件（mp3/wav，如 tools/tts.py 的产物）。'
+                                   '给出后自动按音频时长对齐音节速率并混流；'
+                                   '配 --no-align 可关闭对齐')
+    s.add_argument('--no-align', action='store_true',
+                   help='--audio 时不对齐音节速率（只混流）')
     s.add_argument('--bg', default='#141117')
     s.set_defaults(fn=cmd_say)
 

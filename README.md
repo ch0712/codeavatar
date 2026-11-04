@@ -98,6 +98,12 @@ python tools/codeavatar.py say no4 "da4 jia1 hao3! jin1 tian1 jiang3 kou3 xing2.
 python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
     -o out/talk.mp4                            # 中文：节奏估计（诚实降级，
                                                # perf.meta.mode=estimated，口型不保证对应发音）
+
+# 4b+) 带声音的口播成片（TTS 音轨 + 音画时长对齐）
+python tools/tts.py "大家好，今天讲口型。" -o out/tts.mp3
+python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
+    -o out/talk.mp4 --audio out/tts.mp3        # 自动按音频时长对齐音节速率并混流
+                                               # （总时长一阶对齐，非逐音素；配 --no-align 关闭对齐）
 python tools/codeavatar.py say no4 "ni3 hao3!" \
     -o out/talk.mp4 --pinyin --motion          # +低幅动作轨：注视目标/眨眼节奏/
                                                # 头部预备-跟随-收势/呼吸（显式开启，

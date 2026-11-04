@@ -100,6 +100,14 @@ python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
     -o out/talk.mp4                            # Chinese: rhythm estimation (honest
                                                # degradation, perf.meta.mode=estimated,
                                                # visemes not guaranteed to match phonemes)
+
+# 4b+) talking-head clip with sound (TTS audio track + duration alignment)
+python tools/tts.py "大家好，今天讲口型。" -o out/tts.mp3
+python tools/codeavatar.py say no4 "大家好，今天讲口型。" \
+    -o out/talk.mp4 --audio out/tts.mp3        # aligns syllable rate to the audio
+                                               # duration and muxes it (first-order
+                                               # total-duration alignment, not per-phoneme;
+                                               # pass --no-align to disable)
 python tools/codeavatar.py say no4 "ni3 hao3!" \
     -o out/talk.mp4 --pinyin --motion          # + low-amplitude motion tracks: gaze target /
                                                # blink rhythm / head anticipation-follow-settle /
