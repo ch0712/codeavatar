@@ -219,6 +219,10 @@ def split(key, d):
     W, H = d['canvas']
     eyes = d['eyes']
     assert len(eyes) == 2, 'eyes[] 不对: %r' % (eyes,)
+    # 雕刻模式（FOLK_EYE_CARVE=1，配合 trace_design 的眼区雕刻）：trace 阶段已按
+    # raw 亮度把睫毛/虹膜剥离成完整眼层，不再需要下面的「矩形眼区吸附」——
+    # noF 实测矩形会把眼区上缘的刘海/鬓发像素捞进眼组，眨眼时发块跟着眼皮压扁。
+    CARVE = _os.environ.get('FOLK_EYE_CARVE') == '1'
     eye_layers = [l for l in d['layers'] if l.get('role') in ('eye', 'lid', 'iris') and lum(l['hex']) < 150]
     assert eye_layers, '没有深色眼层'
 
@@ -248,7 +252,8 @@ def split(key, d):
             if l.get('role') in ('brow', 'lid', 'iris'):
                 continue
             dark |= poly_mask(parse_d(l['d']), W, H)
-        M |= (dark & R)
+        if not CARVE:
+            M |= (dark & R)
         area0 = int(M.sum())
         # 几何模型（设定稿实测）：眼 = **上眼线弧（带）+ 瞳孔圆**，瞳孔的顶部被眼线挡住。
         # 所以不能「从掩膜里挖最内切圆」——那挖出来的是「被截顶的圆」，直径小一圈，
@@ -332,7 +337,13 @@ def split(key, d):
         # 眼线 = 眼形 − 瞳孔（设计稿的两头厚、中间被瞳孔顶住的形状原样保留）
         lid_all = (M & (1 - pupil)).astype(np.uint8)
         lid_layers = []
-        hexes = sorted({l['hex'] for l in gl}, key=lambda h: -sum(1 for l in gl if l['hex'] == h))
+        # hexes 排序必须**确定性**且按「像素面积」降序（面积 → 频次）：
+        # 集合迭代顺序不定 + 平频时哪组拿 lid_all（整条眼线）随运行漂移 —— noF 实测
+        # 肤色阴影碎片 #665254 靠「层数 2 > 1」抢过主眼层 #0A0C19（9981px vs 344px），
+        # 整条眼线被涂成灰棕。面积才是「主色」的本义。
+        hexes = sorted({l['hex'] for l in gl},
+                       key=lambda h: (-sum(l['area'] for l in gl if l['hex'] == h),
+                                      -sum(1 for l in gl if l['hex'] == h)))
         for k2, hexv in enumerate(hexes):
             G = np.zeros((H, W), np.uint8)
             for l in gl:
@@ -363,7 +374,12 @@ def split(key, d):
     first = min(idx for idx, l in enumerate(d['layers']) if l['id'] in old_ids)
     before = [l for l in d['layers'][:first] if l['id'] not in old_ids]
     rest = [l for l in d['layers'] if l['id'] not in old_ids and l not in before]
-    d['layers'] = before + new_layers + rest
+    if CARVE:
+        # 雕刻模式：iris/lid 追加到数组末尾（渲染最上）。眼白(role=eye 浅色)留在 rest 里，
+        # 必须压在 iris/lid 之下 —— 静止时瞳孔/睫毛盖住眼白才算还原设定稿。
+        d['layers'] = before + rest + new_layers
+    else:
+        d['layers'] = before + new_layers + rest
     return report
 
 
@@ -382,9 +398,12 @@ def main():
                 print('   %-22s y%4d-%4d x%4d-%4d' % (a, b[1], b[3], b[0], b[2]))
             if nstray:
                 print('   ⚠ 表外仍带 role 的层 %d 条: %s' % (nstray, stray))
-        moved = absorb_eye_region(key, d)
-        if moved:
-            print('== %s 眼区吸附：把镜框/镜腿里粘连的眼线摘回眼睛 %d px' % (key, moved))
+        if _os.environ.get('FOLK_EYE_CARVE') == '1':
+            print('== %s 雕刻模式：跳过眼区吸附（trace 已按 raw 亮度剥离眼区像素）' % key)
+        else:
+            moved = absorb_eye_region(key, d)
+            if moved:
+                print('== %s 眼区吸附：把镜框/镜腿里粘连的眼线摘回眼睛 %d px' % (key, moved))
         rep = split(key, d)
         # ── 断言 ──
         # 眉层底边必须在眼区之上（原来是写死的 no4 数字 645，换角色必假失败；

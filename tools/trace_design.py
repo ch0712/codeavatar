@@ -55,6 +55,19 @@ PRESETS = {
         "eyeL":  (455, 682, 625, 742),
         "eyeR":  (742, 682, 905, 742),
     },
+    # 女性角色 · 短发高领（examples/gen-female/female-v1.png，2026-11-05 手量）
+    #   量法：out/_noF_left|right|mouth.png 局部 3 倍放大 + 网格读数，
+    #   眼白连通块实测 (423,783,167,87)/(775,783,166,87) 定眼心。
+    #   ⚠ 本稿深色五官与侧发同色系，自动分区（zone_auto）检不出眉眼配对 → 只能手量。
+    #   zone 判定规则是「轮廓 bbox 完整落在 zone 内」：zone 故意比五官松一圈，
+    #   但不可完整包住头发轮廓（头发 bbox 远大于 zone，天然安全）。
+    "noF": {
+        "mouth": (548, 1058, 782, 1175),
+        "browL": (395, 650, 640, 720),
+        "browR": (725, 650, 962, 722),
+        "eyeL":  (390, 738, 668, 884),
+        "eyeR":  (748, 738, 968, 884),
+    },
 }
 Z = PRESETS["no4"]
 
@@ -311,12 +324,18 @@ def main():
         counts[c] = counts.get(c, 0) + 1
     raw_colors = [c for c, _ in sorted(counts.items(), key=lambda kv: -kv[1])]
 
-    # 合并相近色（距离 < 26）：量化会把同一块颜色劈成两三个几乎一样的值，
+    # 合并相近色：量化会把同一块颜色劈成两三个几乎一样的值，
     # 不合并的话每个掩膜都是麻点，后面的形态学开运算也救不回来。
+    # 阈值是**显式开关**（FOLK_MERGE_TOL，默认 26 = no1/no4 已验收行为零漂移）：
+    # noF 实测（2026-11-05）睫毛色 (8,25,47) 与发/衣主色 (12,33,58) 距离仅 14.2，
+    # 默认 26 会把睫毛/虹膜桥接进头发巨块，整脸深色连成一个轮廓、五官判不出来；
+    # 对这种"深色五官贴深色头发"的稿子用 12 让睫毛色分家（虹膜与睫毛距 8.7 仍同层，
+    # 眼白是浅色天然分开）。
+    MERGE_DIST = float(os.environ.get("FOLK_MERGE_TOL", "26"))
     merged = []
     for c in raw_colors:
         for m in merged:
-            if np.linalg.norm(np.array(c, dtype=float) - np.array(m, dtype=float)) < 26:
+            if np.linalg.norm(np.array(c, dtype=float) - np.array(m, dtype=float)) < MERGE_DIST:
                 break
         else:
             merged.append(c)
@@ -330,6 +349,32 @@ def main():
         arr[np.all(a == np.array(c, dtype=np.uint8), axis=2)] = np.array(lut[c], dtype=np.uint8)
     a = arr
     colors = merged
+
+    # ── 眼区雕刻（显式开关 FOLK_EYE_CARVE=1，默认关闭 = no1/no4 零漂移）──
+    # noF 实测（2026-11-05）：睫毛/虹膜（raw lum≈11~28）与侧发暗部同处深色调色板槽
+    # 且在画上物理相连（眼尾翅尖直接扎进鬓发）。单纯"色分家"救不了左眼——
+    # 翅尖与鬓发共享同一代表色 #08192F 且像素相邻，同色掩膜里必然连成一个轮廓，
+    # bbox 超出眼区 → 判不成眼。所以按**原始亮度**在眼区框内做像素级剥离：
+    #   carve = 眼zone内 且 raw lum<40（真睫毛/虹膜；侧发暗部 raw lum≈45~50 分得开）
+    # 被剥离像素换成画布上不存在的哨兵色，正常提层循环自动跳过；
+    # 事后由哨兵掩膜直接生成 role=eye 层。配套约束见提层循环与 split_eye_layers。
+    CARVE = os.environ.get("FOLK_EYE_CARVE") == "1"
+    SENTINELS = ((1, 2, 3), (2, 3, 4))
+    carve_meta = []   # [(side, mask, hex)]
+    if CARVE:
+        raw_lum = (raw[..., 0].astype(np.int32) * 299 + raw[..., 1].astype(np.int32) * 587
+                   + raw[..., 2].astype(np.int32) * 114) // 1000
+        for zk, side_i, sent in (("eyeL", 0, SENTINELS[0]), ("eyeR", 1, SENTINELS[1])):
+            z = Z[zk]
+            zone_m = np.zeros((H, W), bool)
+            zone_m[z[1]:z[3], z[0]:z[2]] = True
+            carve = (raw_lum < 40) & zone_m
+            a[carve] = np.array(sent, np.uint8)
+            med = np.median(raw[carve].reshape(-1, 3), axis=0)
+            carve_meta.append((side_i, carve.copy(), "#%02X%02X%02X" % tuple(int(v) for v in med)))
+        print(f"  眼区雕刻：睫毛/虹膜(raw lum<40)从深色层剥离 "
+              f"{[int(m.sum()) for _, m, _ in carve_meta]}px/眼")
+
     bg_q = min(colors, key=lambda c: np.linalg.norm(np.array(c, dtype=float) - bgc))
     protect = np.zeros((H, W), dtype=bool)
     for z in Z.values():
@@ -362,7 +407,11 @@ def main():
         mask, ant = kill_top_antenna(mask)
         if ant:
             print(f"  去天线: {'#%02X%02X%02X' % tuple(int(v) for v in c)} 切掉顶部 {ant}px 竖条")
-        cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # CARVE 模式一律 CCOMP + evenodd：眼区雕刻从深色层里挖走睫毛/虹膜像素，
+        # 外轮廓(RETR_EXTERNAL)会把挖出的洞填实 → 眨眼时眼窝露出死黑；
+        # CCOMP 带上内洞 + evenodd 填充让洞真透底（透出下层皮肤），闭眼才是「眼皮合上」。
+        mode = cv2.RETR_CCOMP if CARVE else cv2.RETR_EXTERNAL
+        cnts, _ = cv2.findContours(mask, mode, cv2.CHAIN_APPROX_SIMPLE)
         for cnt in cnts:
             area = cv2.contourArea(cnt)
             ap = cv2.approxPolyDP(cnt, EPS, True).reshape(-1, 2)
@@ -377,7 +426,13 @@ def main():
             # 只有「就是背景色」才跳过。原来是三通道差之和 < 80，太松：
             # S5 实测肤色 #F4D1B4 与米色背景 #F0E9DA 的差之和只有 66 < 80，
             # 整个脸被当成背景跳过 → 图层里没有皮肤层，角色整条判不出来。
-            if np.abs(np.array(c, dtype=np.int16) - bgc).max() <= 10:
+            # ⚠ CARVE 例外：noF 的眼白 (241,233,227) 与米色背景差仅 10，被这条规则
+            # 删掉后眼白没有图层 —— transparentBg 渲染（六格机检/抠像场景）时眼眶
+            # 直接透出深色底，看起来是两个黑洞（2026-11-05 六格图实锤）。
+            # 修法：CARVE 模式下「完整落在五官区内的背景色轮廓」保留（眼白 → role=eye
+            # 随眨眼压扁）；画布级大背景轮廓（不落 zone）仍跳过。no1/no4 不开 CARVE，零漂移。
+            _is_bg = np.abs(np.array(c, dtype=np.int16) - bgc).max() <= 10
+            if _is_bg and not (CARVE and feat):
                 continue
             rgb = tuple(int(v) for v in c)
             role, side = judge_role(box)
@@ -389,9 +444,42 @@ def main():
                 "area": int(area),
                 "role": role,
                 "side": side,
+                **({"fillRule": "evenodd"} if CARVE else {}),
             })
+        # 哨兵色不是任何真实平面色，提层循环天然跳过；这里不用额外处理。
 
     layers.sort(key=lambda l: -l["area"])
+    # 雕刻眼层固定追加在数组末尾（= 渲染最上层）：
+    # 眼白(浅色)面积小于睫毛层时按面积排序会排到睫毛后面、把虹膜盖掉，
+    # 眼族的上下序不能靠面积碰运气 —— 静止时睫毛/虹膜必须压住眼白。
+    for side_i, cmask, chex in carve_meta:
+        cm = cmask.astype(np.uint8)
+        cnts2, _ = cv2.findContours(cm, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+        paths, px_pts = [], []
+        for cnt in cnts2:
+            if cv2.contourArea(cnt) < 30:
+                continue
+            ap = cv2.approxPolyDP(cnt, EPS, True).reshape(-1, 2)
+            if len(ap) < 3:
+                continue
+            paths.append("M " + " L ".join(f"{int(x)},{int(y)}" for x, y in ap) + " Z")
+            px_pts.append(ap)
+        if not paths:
+            print(f"  ⚠ 眼区雕刻 side{side_i} 无有效轮廓")
+            continue
+        allpts = np.vstack(px_pts)
+        layers.append({
+            "id": f"eyeCarve{side_i}",
+            "hex": chex,
+            "d": " ".join(paths),
+            "box": [int(allpts[:, 0].min()), int(allpts[:, 1].min()),
+                    int(allpts[:, 0].max()), int(allpts[:, 1].max())],
+            "area": int(cm.sum()),
+            "role": "eye",
+            "side": side_i,
+            "fillRule": "evenodd",
+        })
+        print(f"  雕刻眼层 side{side_i}: {chex} area{int(cm.sum())} box{layers[-1]['box']}")
     bg = layers[0]["hex"]
 
     # 抗锯齿光晕/门襟亮缝这类"近白层"：直接删会在原地留下一条缝（缝里透出背景 → 白线），

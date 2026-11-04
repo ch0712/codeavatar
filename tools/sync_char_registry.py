@@ -10,7 +10,10 @@ KEY = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*$')
 
 
 def main():
-    keys = [path.stem for path in sorted(CHARS.glob('*.json'))]
+    # manifest（<key>.manifest.json）是建角诊断产物，不是角色数据 —— 与
+    # codeavatar.py 的清单逻辑同一排除规则，否则 stem 含点直接炸标识符校验。
+    keys = [path.stem for path in sorted(CHARS.glob('*.json'))
+            if not path.name.endswith('.manifest.json')]
     invalid = [key for key in keys if not KEY.fullmatch(key)]
     if invalid:
         raise SystemExit(f'角色 key 必须是 TypeScript 标识符：{", ".join(invalid)}')

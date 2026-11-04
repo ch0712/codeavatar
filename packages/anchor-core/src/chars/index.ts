@@ -4,6 +4,7 @@ import no4 from './no4.json';
 import no5 from './no5.json';
 import no6 from './no6.json';
 import no7 from './no7.json';
+import noF from './noF.json';
 
-export const CHARACTER_DATA = {no1, no4, no5, no6, no7};
+export const CHARACTER_DATA = {no1, no4, no5, no6, no7, noF};
 export type CharacterKey = keyof typeof CHARACTER_DATA;

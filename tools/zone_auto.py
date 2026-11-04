@@ -70,11 +70,52 @@ def detect_zones(path, verbose=False):
     subj = np.abs(a - bg).sum(axis=2) > 45
 
     # ── 深色小块：排除「高 > 0.05H 或 面积 > 2% 画布」的巨块（头发/镜框/衣服） ──
+    # 二值亮度掩码有个已知缺陷：颜色不同但亮度都低的相邻区域会连成一个巨块
+    # （AI 生成稿实测：眉毛挨着头发 → 眉+眼+睫毛+发全并成 21% 画布的一坨，
+    # 全部被巨块排除，配对直接 0 对）。所以连通块内再做一次**按量化颜色拆分**：
+    # 主色占比 >60% 视为单色块原样参与筛选，混合块按色桶拆开各参与筛选。
+    # （S5 老稿的眉/眼本来就是独立小连通块，走主色分支，行为不变。）
     dark = (a.mean(axis=2) < 130) & subj
-    cand = [d for d in blobs(dark, 250)
-            if (d["box"][2] - d["box"][0]) > 35
-            and (d["box"][3] - d["box"][1]) <= 0.05 * H
-            and d["area"] <= 0.02 * W * H]
+
+    def _blocks_from(mask):
+        out = []
+        for d in blobs(mask, 250):
+            bw, bh = d["box"][2] - d["box"][0], d["box"][3] - d["box"][1]
+            if bw > 35 and bh <= 0.05 * H and d["area"] <= 0.02 * W * H \
+                    and d["area"] / max(1, bw * bh) > 0.35:
+                out.append(d)
+        return out
+
+    lab, n = ndi.label(dark, structure=np.ones((3, 3)))
+    q16 = (a // 16).astype(np.int32)
+    cand = []
+    for i in range(1, n + 1):
+        ys, xs = np.where(lab == i)
+        if len(xs) < 250:
+            continue
+        y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
+        codes = (q16[ys, xs, 0] << 16) | (q16[ys, xs, 1] << 8) | q16[ys, xs, 2]
+        keys, counts = np.unique(codes, return_counts=True)
+        order = np.argsort(-counts)
+        if counts[order[0]] >= 0.6 * len(codes):
+            cand.extend(_blocks_from(lab == i))
+            continue
+        # 混合块：按色桶在 bbox 内拆分
+        sub_dark = dark[y0:y1, x0:x1]
+        sub_q = q16[y0:y1, x0:x1]
+        sub_code = (sub_q[:, :, 0] << 16) | (sub_q[:, :, 1] << 8) | sub_q[:, :, 2]
+        sub_lab, sub_n = ndi.label(lab[y0:y1, x0:x1] == i, structure=np.ones((3, 3)))
+        for k in keys[counts >= 250]:
+            m = (sub_code == k) & (sub_lab > 0)
+            if not m.any():
+                continue
+            for d in _blocks_from(m):
+                d = dict(d)
+                b = d["box"]
+                d["box"] = (b[0] + x0, b[1] + y0, b[2] + x0, b[3] + y0)
+                d["cx"] += x0
+                d["cy"] += y0
+                cand.append(d)
     cand.sort(key=lambda d: d["cy"])
     if verbose:
         print(f"  候选深色小块 {len(cand)} 个:")
