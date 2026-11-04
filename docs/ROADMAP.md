@@ -220,16 +220,21 @@
   ≥3 名评审者（含作者外 1 人），执行结果另记 docs/eval/。）
 - [ ] CI：干净安装、CLI 冒烟、少量 golden 帧、跨平台路径、依赖与许可证扫描。
 - [ ] 整理 LICENSE、贡献指南、行为准则、支持范围、版本策略、变更日志和安全报告方式。
-  （部分达成 2026-11-03：变更日志（CHANGELOG-char-automation）、支持范围（README
-  能力边界）、版本策略（INTEGRATION.md 兼容承诺）已具备；**待用户决策**：开源协议
-  选择（根 package.json 仍 UNLICENSED——协议是法律决策，不代选）、贡献指南/
-  行为准则/安全报告方式待协议定后一并出。）
+  （**2026-11-04 协议已定：MIT**——`LICENSE`（MIT 正文 + 素材例外指引）+
+  `package.json` license=MIT + README「授权」段 + `docs/LICENSES.md`（代码/角色
+  资产/第三方三分）。决策依据：代码无护城河、采用率即价值、角色 IP 风险用素材
+  例外单独挡；AGPL 会挡住工作室商用。**已达成**：变更日志
+  （CHANGELOG-char-automation）、支持范围（README 能力边界）、版本策略
+  （INTEGRATION.md 兼容承诺）、LICENSE。**待办**：贡献指南、行为准则、安全报告
+  方式（补上即可勾选）。若日后要卖商业授权，MIT 不可回退——需在外部贡献进入前
+  改双许可。）
 
 - [ ] 核对 Remotion 及素材授权、第三方依赖许可证、样例角色/参考图授权；避免“可见公开”与“可合法复用”混淆。
-  （部分达成 2026-11-03：`tools/repo_hygiene.py licenses` 进 CI（依赖 license 归类 +
-  GPL 系红旗检查，当前无 GPL 混入）；README 有 Remotion 商业授权提示。**待办**：
-  Remotion 4.0.537 公司规模授权条款的正式核对、样例角色（no1/no4/no5/no6/no7）
-  设定稿的来源授权确认。）
+  （部分达成 2026-11-04：`tools/repo_hygiene.py licenses` 进 CI（依赖 license 归类 +
+  GPL 系红旗检查，当前无 GPL 混入）；`docs/LICENSES.md` 已把代码/角色资产/
+  第三方依赖三分并写明 Remotion 双授权与本仓 MIT 的边界，LICENSE 末尾同步指引。
+  **待办**：Remotion 4.0.537 公司规模授权条款的正式核对、样例角色
+  （no1/no4/no5/no6/no7）设定稿的来源授权确认。）
 
 - [x] 提供第三方 CLI 集成文档、JSON 输入输出样例、稳定退出码、版本兼容表。
   （**2026-11-03 落地**：`docs/INTEGRATION.md`——退出码表（0/1/2/3 稳定承诺）、

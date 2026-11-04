@@ -13,5 +13,5 @@
     "render": "cd studio && remotion render src/index.ts TalkClip",
     "studio": "cd studio && remotion studio src/index.ts"
   },
-  "license": "UNLICENSED"
+  "license": "MIT"
 }

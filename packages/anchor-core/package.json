@@ -14,5 +14,6 @@
   },
   "scripts": {
     "check": "python scripts/check_boundaries.py"
-  }
+  },
+  "license": "MIT"
 }
