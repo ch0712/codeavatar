@@ -7,3 +7,6 @@ packages/anchor-core/src/chars/*.prespeck
 __pycache__/
 *.pyc
 .workbuddy/
+*volc*
+*.secret.*
+volc-tts.*

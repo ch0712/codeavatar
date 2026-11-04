@@ -311,20 +311,37 @@ def cmd_say(a):
         audio_path = Path(a.audio).resolve()
         if not audio_path.is_file():
             raise SystemExit(f'--audio 文件不存在: {audio_path}')
-        dur = probe_duration(audio_path)
-        if not dur or dur <= 0:
-            raise SystemExit('--audio 无法读取时长（ffprobe 失败？）')
         if getattr(a, 'no_align', False):
+            dur = probe_duration(audio_path)
             say_info(f'  --audio 已关闭对齐：沿用 --sps {sps}，音画时长可能不一致')
         else:
+            # TTS 产物自带首尾静音（实测前 0.18s + 尾 0.56s），人声包络会比
+            # 口型包络短（"音频开始晚、结束早"）——修剪首尾静音（留 30ms 垫）
+            trimmed = Path(tempfile.gettempdir()) / (
+                'codeavatar-audio-' + hashlib.sha256(
+                    audio_path.read_bytes()).hexdigest()[:12] + '.wav')
+            if not trimmed.exists():
+                subprocess.run(
+                    ['ffmpeg', '-y', '-v', 'error', '-i', str(audio_path), '-af',
+                     'silenceremove=start_periods=1:start_threshold=-40dB'
+                     ':start_silence=0.03,areverse,'
+                     'silenceremove=start_periods=1:start_threshold=-40dB'
+                     ':start_silence=0.03,areverse',
+                     '-ar', '44100', str(trimmed)],
+                    check=True, capture_output=True)
+            raw_dur = probe_duration(audio_path)
+            dur = probe_duration(trimmed)
+            if not dur or dur <= 0:
+                raise SystemExit('--audio 修剪静音后无法读取时长（ffprobe 失败？）')
+            audio_path = trimmed
             if a.pinyin:
                 n = len(a.text.split())
             else:
                 n = sum(1 for c in a.text
                         if not c.isspace() and c not in '，。！？!?.…、；：,;:')
             sps = max(1.0, round(n / dur, 2))
-            say_info(f'  音频对齐：{n} 音节 / {dur:.2f}s → sps={sps}'
-                     '（总时长一阶对齐，非逐音素）')
+            say_info(f'  音频对齐：修剪首尾静音 {raw_dur:.2f}s → {dur:.2f}s，'
+                     f'{n} 音节 → sps={sps}（总时长一阶对齐，非逐音素）')
     req = json.dumps({'text': a.text, 'pinyin': a.pinyin, 'sps': sps,
                       'motion': a.motion}, ensure_ascii=False)
     r = subprocess.run([sys.executable, TOOLS / 'say_perf.py'], input=req,
