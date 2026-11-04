@@ -638,6 +638,10 @@ def main():
         "eyes": eyes,
         "brows": [{"side": l.get("side"), "box": l["box"], "hex": l["hex"]} for l in layers if l["role"] == "brow"],
         "layers": layers,
+        # 雕刻稿（noF 这类新一代厚唇设定）：渲染端嘴模型切「缝锚定」——
+        # 原机制锚定唇框顶，会把牙/口腔整块铺在上唇位置（成片=白胡子+黑胡子）。
+        # 见 FaceTraced.tsx FULL_LIPS 分支与 2026-11-05 六格图缺陷记录。
+        **({"mouth": "fullLips"} if CARVE else {}),
     }
     data["key"] = key
     json.dump(data, open(outfile, "w"), ensure_ascii=False)

@@ -41,6 +41,9 @@ export type CharData = {
   brows: { side?: string; box: [number, number, number, number]; hex: string }[];
   layers: CharLayer[];
   key?: string;
+  /** 嘴模型：'fullLips' = 厚唇稿（noF）——开口缝锚定唇中线（上唇固定/口腔填缝/下唇下沉）；
+   *  缺省 = 薄唇稿（no1/no4）——原「唇顶锚定三层叠」机制，逐字节零漂移。 */
+  mouth?: 'fullLips';
 };
 
 export const CHARS = CHARACTER_DATA as unknown as Record<CharacterKey, CharData>;
@@ -248,6 +251,17 @@ export const FaceTraced: React.FC<{
   const bodyLayersRaw = LAYERS.filter((l) => !isMouthLayer(l));
   const bodyLayers = depth && Math.abs(p.yaw) > 1e-6 ? orderByDepth(bodyLayersRaw) : bodyLayersRaw;
 
+  const FULL_LIPS = data.mouth === 'fullLips';
+  // fullLips（noF 厚唇稿）：量具 bbox 把「唇厚」混进「开口高度」——U 全唇厚就有 ~27px，
+  // O 开到 0.68 也只量到 30px，O/U 可分性假 FAIL（10.0% < 15%）。厚唇稿下颌张度应更直接
+  // 体现在开口高度上：O jaw=0.50 vs U jaw=0.14，正好是不混淆两者的判别维度。
+  // 只乘在 fullLips 分支内（no1/no4 不进该分支，golden 零漂移）。
+  const lipDropFL = FULL_LIPS ? lipDrop * (1 + 0.5 * Math.max(0, p.jaw)) : lipDrop;
+  // clipPath id 是文档级唯一：同页多实例（六格机检 6 个 FaceTraced）会互相解析到
+  // 第一个实例的 defs —— 静态 rect 内容相同无害，动态 rect（随 pose 变）会全部错用
+  // 第一格的裁剪框（实测 O/E/I/U 开口空隙全部消失）。useId 去掉冒号保 url(#) 可解析。
+  const uid = React.useId().replace(/:/g, '');
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" style={{ display: 'block' }}>
       <defs>
@@ -324,9 +338,62 @@ export const FaceTraced: React.FC<{
         {/* 下颌不再「裁剪后平移肤色层」重画：那样必然在裁切边缘（嘴高度）切断脸轮廓 →
             2× 放大就是两道台阶（老板 2026-10-28 指出「脸颊向外断层」）。
             下巴起伏改由 headT 里的 p.jaw 整体带动 + 下唇 lipDrop 表达。 */}
-        {/* ── 嘴：上唇 + 唇线固定；红唇**整块**下移（不再按 lipMid 切成上下两半 → 不会有「两层嘴」） ── */}
+        {/* ── 嘴 ──
+            fullLips（noF 厚唇稿，2026-11-05）：原机制锚定**唇框顶**，对厚唇稿会把
+            牙/口腔整块铺在上唇的位置（成片里像白胡子+黑胡子，老板实锤"嘴巴完全失败"）。
+            缝锚定模型：上唇固定、开口从唇中线（lipMid）向下展开——
+              口腔 = 唇形下移 (lipMid−lipTop)，下唇画在其上自然遮出开口形状
+              牙   = 唇形压扁 0.40 挂缝下；下唇 = 缝以下裁出，下沉+纵向拉伸
+              唇缝 = 唇影层（LIP_LINE）裁成缝附近窄带，闭口可见、开口淡出 */}
         {(LIP || UPPER_LIP || LIP_LINE) && (
           <g transform={`translate(${lipCx} ${lipTop}) scale(${wideK} 1) translate(${-lipCx} ${-lipTop})`}>
+            {FULL_LIPS && LIP && (
+              <>
+                <defs>
+                  {/* ⚠ clipPath 在引用元素的 user space（=子元素变换之后）里切：
+                      下唇/口腔的裁剪 y 必须用**最终坐标**动态算——
+                      静态 lipMid 会把下沉让出的空隙又切掉（首版口腔永远不可见，2026-11-05） */}
+                  <clipPath id={`${uid}-fl-up`}><rect x={0} y={0} width={W} height={Math.max(1, lipMid)} /></clipPath>
+                  <clipPath id={`${uid}-fl-dn`}><rect x={0} y={lipMid + 0.55 * lipDropFL} width={W} height={Math.max(1, H)} /></clipPath>
+                  <clipPath id={`${uid}-fl-cav`}><rect x={0} y={lipMid} width={W} height={Math.max(1, 0.55 * lipDropFL)} /></clipPath>
+                  <clipPath id={`${uid}-fl-seam`}><rect x={0} y={lipMid - 6} width={W} height={12} /></clipPath>
+                </defs>
+                {/* 口腔：唇形整体下移到缝，只露「缝→下唇顶」的空隙带。
+                    ⚠ 不加红调、色用 #2D150F：量具（gate_mouth）的口腔判据是 R<140，
+                    腔/唇边界的 AA 混合行必须仍落在判据内，否则每格被拆成
+                    「上唇/牙/腔+下唇」多个连通块，开口高度进不了 bbox
+                    （实测 O/U 可分性假 FAIL，2026-11-05）。 */}
+                {open > 0.12 && (
+                  <g clipPath={`url(#${uid}-fl-cav)`}>
+                    <path d={LIP.d} fill="#2D150F" opacity={Math.min(1, open * 2)}
+                          transform={`translate(0 ${lipMid - lipTop})`} />
+                  </g>
+                )}
+                {/* 上排牙：唇形横向收到 0.68、纵向压扁 0.40，锚在缝上。
+                    ⚠ 不透明度必须 1.0：0.95 叠深口腔后 R≈223，掉出量具牙判据（R>225），
+                    六格里牙带不进掩膜 → 上下唇连通块被隔断、O/U 可分性假 FAIL（2026-11-05） */}
+                {open > 0.12 && teethAlpha > 0 && (
+                  <path d={LIP.d} fill="#E9E1D3" opacity={teethAlpha}
+                        transform={`translate(${lipCx} ${lipMid}) scale(0.68 0.40) translate(${-lipCx} ${-lipMid})`} />
+                )}
+                {/* 下唇：下沉 0.55·lipDropFL + 纵向拉伸；裁剪只留移动后位于缝下方的部分 */}
+                <g clipPath={`url(#${uid}-fl-dn)`}>
+                  <path d={LIP.d} fill={LIP.hex} stroke={LIP.hex} strokeWidth={1.2} strokeLinejoin="round"
+                        transform={`translate(0 ${0.55 * lipDropFL}) translate(${lipCx} ${lipMid}) scale(1 ${1 + Math.min(1, open) * 0.25}) translate(${-lipCx} ${-lipMid})`} />
+                </g>
+                {/* 上唇：缝以上裁出，固定不动 */}
+                <g clipPath={`url(#${uid}-fl-up)`}>
+                  <path d={LIP.d} fill={LIP.hex} stroke={LIP.hex} strokeWidth={1.2} strokeLinejoin="round" />
+                </g>
+                {/* 唇缝：唇影层裁成缝附近窄带 */}
+                {LIP_LINE && (
+                  <g clipPath={`url(#${uid}-fl-seam)`}>
+                    <path d={LIP_LINE.d} fill={LIP_LINE.hex} opacity={0.6 * Math.max(0, 1 - Math.min(1, open * 2.2))} />
+                  </g>
+                )}
+              </>
+            )}
+            {!FULL_LIPS && (<>
             {/* 上唇（浅棕） */}
             {UPPER_LIP && (
               <path d={UPPER_LIP.d} fill={UPPER_LIP.hex} stroke={UPPER_LIP.hex} strokeWidth={0.8} strokeLinejoin="round" />
@@ -379,6 +446,7 @@ export const FaceTraced: React.FC<{
                 <path d={LIP.d} fill={LIP.hex} stroke={LIP.hex} strokeWidth={1.2} strokeLinejoin="round" />
               </g>
             )}
+            </>)}
           </g>
         )}
       </g>
