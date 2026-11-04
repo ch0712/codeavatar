@@ -38,6 +38,8 @@ tools/                    Python toolchain
   gate_film_perf.py         film-level performance gate (mouth overflow / closed-lip ratio)
   validate_perf.py          Perf contract validation (reads schema/perf-contract.json)
   cli_check.py              CLI exit-code / dry-run / structured-output assertions
+  eval_kit.py               human-eval kit builder (6 blind-ordered clips / questionnaire / key)
+  eval_score.py             human-eval aggregation and protocol verdict
   codeavatar.py             unified CLI
 studio/                   Remotion project (talking-head output)
 docs/SPEC.md              hard spec for reference sheets (with negative list)

@@ -40,6 +40,8 @@ tools/                    Python 工具链
   gate_film_perf.py         成片级表演闸门（口腔溢出/闭唇占比）
   validate_perf.py          Perf 契约校验（读 schema/perf-contract.json）
   cli_check.py              CLI 退出码/dry-run/结构化输出场景断言
+  eval_kit.py               人评评审包生成（6 段盲序/问卷页/密钥）
+  eval_score.py             人评汇总与协议判定线
   codeavatar.py             统一 CLI
 studio/                   Remotion 工程（口播成片输出）
 docs/SPEC.md              设定稿硬规格（含负面清单）

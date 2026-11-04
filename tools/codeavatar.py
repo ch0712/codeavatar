@@ -312,6 +312,8 @@ def cmd_say(a):
     if a.motion and not perf.get('motion'):
         raise SystemExit('--motion 生成的 perf 缺少 motion 轨（合成器未生效？）')
     props = {'char': a.key, 'layout': a.layout, 'bg': a.bg, 'perf': perf}
+    if getattr(a, 'shot', 'full') != 'full':
+        props['shot'] = a.shot
     out = Path(a.out).resolve()
     if getattr(a, 'dry_run', False):
         if getattr(a, 'json_out', False):
@@ -424,6 +426,8 @@ def main():
     s.add_argument('--json', dest='json_out', action='store_true',
                    help='stdout 输出结构化 JSON 结果（第三方集成）')
     s.add_argument('--layout', default='full', choices=['full', 'pip'])
+    s.add_argument('--shot', default='full', choices=['full', 'medium', 'closeup'],
+                   help='镜头景别预设（构图）：缺省 full 保持既有输出零漂移')
     s.add_argument('--bg', default='#141117')
     s.set_defaults(fn=cmd_say)
 
