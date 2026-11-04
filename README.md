@@ -1,5 +1,7 @@
 # codeavatar
 
+**中文** | [English](README.en.md)
+
 纯代码驱动的角色：**设定稿 → 描摹分层矢量角色 → 表情/动作参数化 → 口播成片**。
 
 不使用任何真人素材，不调用 SadTalker / HeyGem / Live2D 这类口型驱动或分层绑定引擎。
@@ -43,6 +45,9 @@ studio/                   Remotion 工程（口播成片输出）
 docs/SPEC.md              设定稿硬规格（含负面清单）
 docs/TIMING.md            时间采样/插值/事件轨/track 混合规范（逐条附断言证据）
 docs/CHANGELOG-char-automation.md   自动化过程的实测记录与踩坑
+docs/LICENSES.md          授权说明（代码 MIT / 角色资产 / 第三方依赖三分）
+CONTRIBUTING.md           贡献指南（提交前门禁 / 四条硬纪律 / PR 要求）
+SECURITY.md               安全策略与私密报告渠道
 ```
 
 ## 契约与唯一事实源（阶段 1）

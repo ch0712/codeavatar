@@ -219,15 +219,16 @@
   随机顺序、4 题 5 分制问卷、判定线、失败样片不删。**协议未执行**：需招募
   ≥3 名评审者（含作者外 1 人），执行结果另记 docs/eval/。）
 - [ ] CI：干净安装、CLI 冒烟、少量 golden 帧、跨平台路径、依赖与许可证扫描。
-- [ ] 整理 LICENSE、贡献指南、行为准则、支持范围、版本策略、变更日志和安全报告方式。
-  （**2026-11-04 协议已定：MIT**——`LICENSE`（MIT 正文 + 素材例外指引）+
-  `package.json` license=MIT + README「授权」段 + `docs/LICENSES.md`（代码/角色
-  资产/第三方三分）。决策依据：代码无护城河、采用率即价值、角色 IP 风险用素材
-  例外单独挡；AGPL 会挡住工作室商用。**已达成**：变更日志
-  （CHANGELOG-char-automation）、支持范围（README 能力边界）、版本策略
-  （INTEGRATION.md 兼容承诺）、LICENSE。**待办**：贡献指南、行为准则、安全报告
-  方式（补上即可勾选）。若日后要卖商业授权，MIT 不可回退——需在外部贡献进入前
-  改双许可。）
+- [x] 整理 LICENSE、贡献指南、行为准则、支持范围、版本策略、变更日志和安全报告方式。
+  （**2026-11-04 全部落地**：`LICENSE`（MIT + 素材例外指引）、`CONTRIBUTING.md`
+  （环境/11 条提交前门禁/四条硬纪律/提交信息/PR 要求/禁做清单）、
+  `CODE_OF_CONDUCT.md`（简版，含"否定结论也是有效产出"的沟通约定）、
+  `SECURITY.md`（支持范围/私密报告渠道/响应目标/范围内外清单）、
+  `docs/LICENSES.md`（代码·资产·依赖三分）、支持范围（README 能力边界）、
+  版本策略（INTEGRATION.md 兼容承诺）、变更日志（CHANGELOG-char-automation）、
+  双语 README（`README.md` / `README.en.md`）。机检：`repo_hygiene.py docs`
+  断言物料齐备 + 两份 README 章节数与代码块数一致（注入缺失可红），已进 CI。
+  **若日后要卖商业授权，MIT 不可回退——需在外部贡献进入前改双许可。**）
 
 - [ ] 核对 Remotion 及素材授权、第三方依赖许可证、样例角色/参考图授权；避免“可见公开”与“可合法复用”混淆。
   （部分达成 2026-11-04：`tools/repo_hygiene.py licenses` 进 CI（依赖 license 归类 +

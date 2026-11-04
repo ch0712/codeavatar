@@ -4,6 +4,7 @@
 场景：
   python tools/repo_hygiene.py licenses   # 第三方依赖许可证扫描（归类汇总）
   python tools/repo_hygiene.py files      # CRLF / 权限位 / 构建脚本边界
+  python tools/repo_hygiene.py docs       # 发布物料齐备 + 双语 README 结构一致
 退出码：0 = 通过（或仅 NOTE 级）；1 = 有 FAIL 级问题。
 """
 import json
@@ -65,12 +66,43 @@ def scan_files():
     check('tools/ 无 bash 主入口（Windows 主流程不依赖 bash）', not sh_files, ', '.join(sh_files))
 
 
+def scan_docs():
+    """发布物料与双语 README 一致性。
+
+    双语 README 的真源是两份文件，漂移靠机检而不是靠记性：章节数必须相等，
+    且互有语言切换链接。译文措辞不同属正常，只断结构可比的那部分。
+    """
+    import re
+    required = ['LICENSE', 'CONTRIBUTING.md', 'CODE_OF_CONDUCT.md', 'SECURITY.md',
+                'docs/LICENSES.md', 'README.md', 'README.en.md']
+    missing = [f for f in required if not (ROOT / f).is_file()]
+    check('发布物料齐备', not missing, '缺失: ' + ', '.join(missing))
+
+    def headings(p):
+        text = (ROOT / p).read_text(encoding='utf-8')
+        return [ln for ln in text.splitlines() if re.match(r'^##\s+\S', ln)]
+
+    zh, en = headings('README.md'), headings('README.en.md')
+    check('双语 README 章节数一致', len(zh) == len(en),
+          f'zh={len(zh)} en={len(en)}')
+    zh_text = (ROOT / 'README.md').read_text(encoding='utf-8')
+    en_text = (ROOT / 'README.en.md').read_text(encoding='utf-8')
+    check('两份 README 互有语言切换链接',
+          'README.en.md' in zh_text and 'README.md' in en_text)
+    # 代码块数量也是结构信号：译文漏抄整段命令会在这里暴露
+    fences = lambda t: t.count('```') // 2
+    check('双语 README 代码块数量一致', fences(zh_text) == fences(en_text),
+          f"zh={fences(zh_text)} en={fences(en_text)}")
+
+
 if __name__ == '__main__':
     mode = sys.argv[1] if len(sys.argv) > 1 else ''
     if mode == 'licenses':
         scan_licenses()
     elif mode == 'files':
         scan_files()
+    elif mode == 'docs':
+        scan_docs()
     else:
         print(__doc__)
         raise SystemExit(0 if not failures else 1)
