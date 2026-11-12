@@ -76,7 +76,8 @@ const frames = renderFaceFrames(charJson, poses, { transparentBg: true, idPrefix
 - `packages/avatar-runtime/scripts/verify.mjs` 校验 ESM / CJS / CDN 三入口逐字节一致，
   并与上述 parity 帧对齐，同时检查产物未夹带角色资产、`d.ts` 契约未漂移。
 
-参考实现：[`demo/runtime.html`](../demo/runtime.html)（单文件、18 帧预渲染 SVG、打开即用）。
+参考实现：[在线 demo](https://codeavatar-runtime-demo.app.workbuddy.host/?sharecode=4PW2T4UUBH) ·
+[`demo/runtime.html`](../demo/runtime.html)（单文件、18 帧预渲染 SVG、本地双击即用）。
 
 ---
 

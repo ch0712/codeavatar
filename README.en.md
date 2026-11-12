@@ -14,15 +14,18 @@ or an Agent, and every render is byte-for-byte reproducible.
 
 ## See it first (install nothing)
 
-[`demo/runtime.html`](demo/runtime.html) is a **single 1.1 MB HTML file**: clone the repo and
-double-click it — no install, no server, no network. No React, no Remotion, no build step,
-just 18 pre-rendered SVG frames. Switch between 6 visemes / 3 moods, or type a sentence
-and let it speak (browser-local TTS).
+**[Live demo — open it in your browser](https://codeavatar-runtime-demo.app.workbuddy.host/?sharecode=4PW2T4UUBH)** —
+no sign-up, no install. Switch between 6 visemes / 3 moods, or type a sentence and let the
+character speak (browser-local TTS).
 
-> For a local HTTP preview: `python -m http.server 8000` then open
-> `http://localhost:8000/demo/runtime.html`. A hosted online version is not published yet.
-> The CDN `standalone.js` works fine as a script, but jsDelivr serves HTML files as
-> `text/plain`, so a CDN link **cannot** be used to open this page directly.
+The same page also lives in the repo: [`demo/runtime.html`](demo/runtime.html), a
+**single 1.1 MB HTML file** you can double-click after cloning — no server, no network,
+no React, no Remotion, no build step, just 18 pre-rendered SVG frames.
+
+> For a local HTTP preview: `python -m http.server 8000` →
+> `http://localhost:8000/demo/runtime.html`. The CDN `standalone.js` works fine as a script,
+> but jsDelivr serves HTML files as `text/plain`, so a CDN link **cannot** be used to open
+> this page directly — use the hosted link above.
 
 ![Six-viseme loop: same face, only numbers changed](docs/assets/talk.gif)
 

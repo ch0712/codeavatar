@@ -577,6 +577,9 @@ golden 15 帧逐字节一致收口。CI run 41752398621（866da06）双平台全
 - `docs/INTEGRATION.md` 扩为库级 / 浏览器级 / Agent 级 / CLI 四层。
 - `tools/make_assets.py` 从六格图生成 `docs/assets/hero.png`（122 KB）与
   `talk.gif`（180 KB），可重复生成，不引入新人工素材。
+- 单文件 demo 已发布为在线页面，稳定链接回填中英文 README / 包 README / 集成文档。
+  实测 `text/html` / 1,102,529 B / 内嵌 18 帧 SVG；jsDelivr 的 `gh` 通道对 HTML
+  返回 `text/plain`，只用于 `standalone.js`，不当页面链接。
 
 ### 15.4 回归与未完成
 
@@ -584,6 +587,6 @@ golden 15 帧逐字节一致收口。CI run 41752398621（866da06）双平台全
 `gate_mouth` 六格 PASS · `tsc --noEmit -p studio` · `check_boundaries.py` 四项。
 
 下一轮：P1 点选式自动建角、P2 MCP/Agent 接口、npm 正式发布与 tag、
-稳定在线 demo、topics/description、v0.2 release 与 48h 发射包、P4 合规对比页。
-按冷启动规律，发射必须排在 P1/P2 或稳定在线 demo 之后。
+topics/description、v0.2 release 与 48h 发射包、P4 合规对比页。
+在线 demo 已就位；按冷启动规律，发射仍须排在 P1/P2 之后。
 

@@ -256,12 +256,16 @@ HeyGen 类 SaaS 已被压到 $22–67/月。国内京东/百度数字人平台**
   PRESETS，P1 待做」，并在中文与英文 README 同时写明。
 - `docs/INTEGRATION.md` 从「只有 CLI」扩为库级 / 浏览器级 / Agent 级 / CLI 四层。
 - 合规叙事只陈述事实（纯插画、无真人素材、不生成拟真人脸），不代替第三方下法律结论。
+- **在线 demo 已发布**（经用户本轮明确授权）：单文件 `demo/runtime.html` 托管为可分享页面，
+  稳定链接回填中英文 README / 包 README / 集成文档。实测 `Content-Type: text/html`、
+  1,102,529 B、内嵌 18 帧 SVG，避开了 jsDelivr 把 HTML 返回 `text/plain` 的陷阱
+  （CDN 只用于 `standalone.js`）。首屏「可点 demo」至此成立。
 
 **回归（全部通过）**：`identity_check no4` 15 帧逐字节一致 ·
 `gate_layer_roles noF` G1~G5 全过 · `gate_mouth` 六格全 PASS ·
 `tsc --noEmit -p studio` 无错误 · `check_boundaries.py` 四项全过。
 
 **仍未完成（下一轮）**：P1 点选式自动建角、P2 MCP / Agent 接口、
-npm 正式发布与 version tag、在线 demo 的稳定链接、仓库 topics/description、
-v0.2 release 与 48h 发射包、P4 合规对比页。
-按 §2.4 的顺序，发射动作必须在 P1/P2 或至少稳定在线 demo 之后，否则流量仍会浪费。
+npm 正式发布与 version tag、仓库 topics/description、v0.2 release 与 48h 发射包、
+P4 合规对比页。在线 demo 已就位，转化漏斗的「看得到」一环已补齐；
+按 §2.4 的顺序，发射动作仍应排在 P1/P2 之后，否则流量仍会浪费在「装不起来」上。

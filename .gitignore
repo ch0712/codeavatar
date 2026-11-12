@@ -11,3 +11,5 @@ __pycache__/
 .volc.env
 volc-tts.*
 out/tts-volc/
+# 应用发布工具的内部标记文件（不属于项目源码）
+.wbapp_*.genie

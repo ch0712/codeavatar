@@ -12,15 +12,17 @@
 
 ## 先看效果（不用装任何东西）
 
-[`demo/runtime.html`](demo/runtime.html) 是一个 **1.1 MB 的单文件 HTML**：clone 后双击打开即可，
-不需要安装、不需要起服务、不需要联网。页面里没有 React、没有 Remotion、没有构建步骤，
-只有 18 帧预渲染的 SVG。可以切换 6 种口型 / 3 种情绪，输入一句话让角色开口
+**[在线 demo：点开即看](https://codeavatar-runtime-demo.app.workbuddy.host/?sharecode=4PW2T4UUBH)** —
+浏览器直接打开，无需注册、无需安装。可以切换 6 种口型 / 3 种情绪，输入一句话让角色开口
 （浏览器本地语音合成）。
 
-> 想用本地 HTTP 预览：`python -m http.server 8000` 后访问
-> `http://localhost:8000/demo/runtime.html`。在线托管版尚未发布——CDN 上的
-> `standalone.js` 是 JS 运行时（可正常引用），但 CDN 会以 `text/plain` 返回 HTML 文件，
-> 所以**不能用 CDN 链接直接当页面打开**。
+同一个页面也在仓库里：[`demo/runtime.html`](demo/runtime.html)，一个 **1.1 MB 的单文件 HTML**：
+clone 后双击打开即可，不需要起服务、不需要联网。页面里没有 React、没有 Remotion、
+没有构建步骤，只有 18 帧预渲染的 SVG。
+
+> 本地 HTTP 预览：`python -m http.server 8000` → `http://localhost:8000/demo/runtime.html`。
+> 注意 CDN 上的 `standalone.js` 是 JS 运行时（可正常引用），但 jsDelivr 会以
+> `text/plain` 返回 HTML 文件，**不能用 CDN 链接直接当页面打开**；在线页面请用上面的托管链接。
 
 ![六格口型循环：同一张脸，只有数值变了](docs/assets/talk.gif)
 
