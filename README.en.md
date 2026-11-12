@@ -2,19 +2,85 @@
 
 [中文](README.md) | **English**
 
-Pure-code character animation: **reference sheet → traced layered vector character → parameterised expressions and motion → talking-head video**.
+![codeavatar: a character is a JSON file](docs/assets/hero.png)
 
-No real-person footage, no SadTalker / HeyGem / Live2D style lip-sync or layer-rigging engines. Characters are **SVG layers traced from a single flat reference sheet**, performance is **numeric parameters** (16 pose channels / 6 visemes / 5 moods), rendering is Remotion + React. Output is deterministic, reproducible, and frame-addressable.
+> **Avatar-as-Code**: a character is a diffable JSON file, a performance is a set of numbers,
+> and rendering is a pure function. One line of code makes it speak in any web page —
+> no GPU, no model weights, no real-person footage, no photoreal synthesis.
 
-## Capability boundary (read this first)
+This is not another "AI talking-head video generator". The character is **plain text**,
+the performance is **numbers**, and the frame is **SVG** — so it fits in git, CI, a web page,
+or an Agent, and every render is byte-for-byte reproducible.
+
+## See it first (install nothing)
+
+[`demo/runtime.html`](demo/runtime.html) is a **single 1.1 MB HTML file**: clone the repo and
+double-click it, or [open it via CDN](https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/demo/runtime.html).
+No React, no Remotion, no build step, no network requests — just 18 pre-rendered SVG frames.
+Switch between 6 visemes / 3 moods, or type a sentence and let it speak (browser-local TTS).
+
+![Six-viseme loop: same face, only numbers changed](docs/assets/talk.gif)
+
+> Honest note: the demo's "speaking" is a rhythmic carousel, **not phoneme alignment**.
+> The repo's `aligned` mode drives visemes from word-level timestamps for real videos.
+> What this demo proves is that **the renderer works outside the video pipeline**.
+
+## 30-second integration
+
+```js
+import { renderFaceSvg, NEUTRAL, VISEME } from 'codeavatar-runtime';
+
+const pose = { ...NEUTRAL, ...VISEME.A };
+document.querySelector('#stage').innerHTML =
+  renderFaceSvg(charJson, pose, { transparentBg: true });
+```
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/packages/avatar-runtime/dist/standalone.js"></script>
+<script>
+  document.querySelector('#stage').innerHTML = CodeAvatar.renderFaceSvg(CHAR, {
+    ...CodeAvatar.NEUTRAL, ...CodeAvatar.VISEME.O
+  });
+</script>
+```
+
+**Release status (stated plainly)**: the package layout and all three entry points are built
+and verified, but `codeavatar-runtime` is **not yet published to npm**. Until then use
+`npm pack ./packages/avatar-runtime`, the in-repo `dist/` files, or the CDN link above.
+The runtime deliberately ships **no character data**: character artwork has a different
+license and cannot be redistributed inside an MIT package.
+
+## Why this is a different path
+
+| | GPU talking heads / avatar platforms | codeavatar |
+|:--|:--|:--|
+| Character | model weights / real-person footage / 3D asset | **a diffable JSON file** |
+| Performance | inference output / keyframe rigging | **numbers** (15 pose channels / 6 visemes / 5 moods) |
+| Rendering | GPU inference, frame by frame | **pure function → SVG string**, CPU milliseconds |
+| Reproducible | same input may differ | **byte-identical output**, CI-friendly |
+| Embeddable in a page | needs a server or WASM inference | **zero-dependency SVG**, plain `innerHTML` |
+| Assets & compliance | likeness / voice rights / weight licences / AI labelling | illustration only, no real-person footage |
+
+**The trade-off up front**: this is flat illustration, not photoreal. Good for picture-in-picture
+narration, product guides, a visible face for an Agent, courseware and private deployments;
+not for a cinematic full-screen protagonist.
+
+## Capability boundary (honest notes)
 
 | Works | Does not work |
 |:--|:--|
 | Parameterised **lip / expression / brow** animation for illustration-grade characters | Photoreal humans (that is the domain of GPU lip-sync models) |
-| **Zero manual work** to switch characters: new sheet in, character out | Creating planes the sheet never drew (no separate nostril patch → no nose) |
+| Automatic tracing from a reference sheet in `auto` zone mode | Creating planes the sheet never drew (no separate nostril patch → no nose) |
 | Standalone talking-head video (picture / lip-sync / captions) | Full-screen hero art (picture-in-picture and medium shots are the comfort zone) |
+| SSR output **pixel-identical** to the Remotion render | Phoneme-aligned lip-sync from raw Chinese text (needs pinyin or word timestamps) |
 
-Measured grade: **flat illustration**. Good enough for a PiP narrator or a vertical talking head; not for a full-screen protagonist.
+Measured grade: **flat illustration**. Good enough for a PiP narrator or a vertical talking head.
+
+> **One correction to earlier docs**: we used to claim "zero manual work to switch characters".
+> In reality `auto` zoning works without manual input on clean sheets, while the full-lip
+> character `noF` currently uses **hand-measured five-zone PRESETS**. Turning that into a
+> browser point-and-click annotation step is tracked as P1 in
+> [`docs/BREAKTHROUGH-2026-11.md`](docs/BREAKTHROUGH-2026-11.md).
 
 ## Layout
 

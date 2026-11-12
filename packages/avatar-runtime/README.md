@@ -1,0 +1,90 @@
+# codeavatar-runtime
+
+**Avatar-as-Code.** A character is a diffable JSON file, a performance is a set of numbers,
+and rendering is a pure function. One call returns a standalone SVG string —
+no GPU, no model weights, no DOM, no Remotion, no runtime dependencies.
+
+```js
+import { renderFaceSvg, NEUTRAL, VISEME } from 'codeavatar-runtime';
+
+const pose = { ...NEUTRAL, ...VISEME.A };
+document.querySelector('#stage').innerHTML =
+  renderFaceSvg(charJson, pose, { transparentBg: true, idPrefix: 'a1' });
+```
+
+## Install
+
+> **Status**: this package is built and verified but **not yet published to npm**.
+> Until then, from the [repository](https://github.com/ch0712/codeavatar):
+
+```bash
+npm pack ./packages/avatar-runtime
+npm i ./codeavatar-runtime-0.2.0.tgz
+```
+
+Or skip installation entirely and use the CDN build:
+
+```html
+<script src="https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/packages/avatar-runtime/dist/standalone.js"></script>
+<script>
+  const svg = CodeAvatar.renderFaceSvg(CHAR, {
+    ...CodeAvatar.NEUTRAL, ...CodeAvatar.VISEME.O
+  });
+  document.querySelector('#stage').innerHTML = svg;
+</script>
+```
+
+Three builds ship in `dist/`: `index.mjs` (ESM), `index.cjs` (CJS), `standalone.js`
+(IIFE → `window.CodeAvatar`). All three render byte-identical SVG.
+
+## API
+
+| Export | Signature | Purpose |
+|:--|:--|:--|
+| `renderFaceSvg` | `(data, pose, opts?) => string` | Render one frame to an SVG string |
+| `renderFaceFrames` | `(data, poses[], opts?) => string[]` | Render a performance to a frame array |
+| `uniquifySvgIds` | `(svg, prefix) => string` | Rename `id` / `url(#id)` pairs |
+| `NEUTRAL`, `VISEME`, `MOODS`, `POSE_RANGES` | numeric contracts | 15 pose channels / 6 visemes / 5 moods |
+
+`opts`: `transparentBg` (omit the background rect), `depth` (2.5D prototype,
+default = flat path), `idPrefix` (**required when several SVGs share one page** —
+clipPath / mask ids are document-scoped).
+
+Types are in `dist/index.d.ts`. `renderFaceSvg` is a pure function:
+same input → byte-identical output, every time.
+
+## Where does `charJson` come from?
+
+**This package intentionally ships no character data.** Character artwork
+(`chars/*.json`, reference sheets) is *not* MIT-licensed — see
+[`docs/LICENSES.md`](https://github.com/ch0712/codeavatar/blob/master/docs/LICENSES.md) —
+and therefore cannot be redistributed inside an MIT package.
+
+Generate your own from a flat illustration you drew:
+
+```bash
+python tools/codeavatar.py build my-sheet.png mychar
+# → packages/anchor-core/src/chars/mychar.json
+```
+
+The resulting JSON is yours. Pass it as `data`; the runtime needs nothing else.
+
+## Why this exists
+
+Most talking-head systems need model weights, a GPU, a server, or WASM inference.
+Here the whole renderer is a pure React component that can be server-rendered to SVG,
+so a character can live in a static page, a CI artifact, or an Agent's response.
+The renderer is **not duplicated** in this package — it is bundled from
+`packages/anchor-core/src/FaceTraced.tsx`, the single source of truth.
+
+Visual equivalence with the video pipeline is enforced by
+`tools/runtime_parity_check.py` (pixel-identical six-viseme grid) and
+`scripts/verify.mjs` in this package (byte-identical frames across all three builds).
+
+Full docs: [README](https://github.com/ch0712/codeavatar/blob/master/README.md) ·
+[Integration guide](https://github.com/ch0712/codeavatar/blob/master/docs/INTEGRATION.md) ·
+[Live single-file demo](https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/demo/runtime.html)
+
+## License
+
+MIT. Character artwork and third-party dependencies are **not** covered — see above.

@@ -1,0 +1,4 @@
+{
+  "builtFrom": "packages/anchor-core/src/FaceTraced.tsx",
+  "note": "THIS IS A GENERATED BUNDLE. Edit core, then run node scripts/build.mjs"
+}

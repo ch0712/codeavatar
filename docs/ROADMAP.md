@@ -532,3 +532,58 @@ golden 15 帧逐字节一致收口。CI run 41752398621（866da06）双平台全
 - 节奏：每日 09:00 自动巡检一次，报告自带「是否要采取动作」的判断依据
   （来源渠道、热门路径、克隆/浏览比）。
 
+## 15. Avatar-as-Code 运行时与分发工程（2026-11-12）
+
+**判断**：开源上线后无效果，根因不是画质，是「最稀缺的性质没有交付给别人」。
+角色 = 可 diff JSON / 表演 = 数值 / 渲染 = 纯函数，这三点被锁在
+`private: true` + Python CLI + Remotion 视频管线背后。依据与调研见
+`docs/BREAKTHROUGH-2026-11.md`。
+
+### 15.1 零依赖 SVG 运行时（P0）
+
+- `FaceTraced.tsx` **一行未改**。新增 `src/svg.ts` 作为唯一适配层，
+  用 `react-dom/server` 把同一个组件 SSR 成纯 SVG 字符串。
+- `tools/runtime/export.mjs` 产出 `demo/runtime.html`（1.1 MB 单文件、18 帧、
+  零依赖）与 parity 页面 / props。
+- `runtime_parity_check.py` 改为**同管线断言**：新增 `studio/src/RuntimeGrid.tsx`
+  注入 SSR 字符串，与 `VisemeGrid` 都由 `remotion still` 输出，只换 SVG 来源。
+  实测 **0 / 3,072,000 像素差异**。
+
+**为什么不能用独立 HTML 截图直接比**：Remotion 注入
+`*{box-sizing:border-box}`，且用 `openBrowser` + CDP `Page.captureScreenshot`
+（`fromSurface:true`，不禁用 GPU）；命令行 `--screenshot --disable-gpu` 是另一条
+光栅路径。补齐两者后仍有 5.761% 的 ±1～2 通道差异，抽样 100% 的大差异落在
+颜色边界，属不同页面合成层的 Skia 舍入，不是内容错位。跨管线对比保留为
+`--cross-check` 报告，**只记录不判定**，不放宽主断言阈值。
+
+### 15.2 可发布运行时包（P0 第二阶段）
+
+`packages/avatar-runtime/`（`codeavatar-runtime@0.2.0`）：ESM / CJS / CDN 三入口，
+`build.mjs` 打包 + 资产合规自检，`verify.mjs` 把产物接进 parity 证据链。
+实测三入口 6 帧 SVG 逐字节一致，且 `发布产物 == parity SSR 帧 == React DOM 渲染`。
+
+**新增硬纪律**：角色美术资产不是 MIT，不得随 MIT 包分发。运行时包
+**不内置任何角色 JSON**，靠 esbuild tree-shaking 去掉 `CHARS`，并在构建期检查
+产物不含角色颜色 / `CHARACTER_DATA` / Remotion 引用。角色由调用方自己 `build` 产出。
+
+发布状态如实标注：**尚未推送 npm**，当前用 `npm pack` / 仓库 `dist/` / CDN。
+
+### 15.3 分发工程首屏（P3 部分）
+
+- README 中英文首屏重写：hero 图 + 口型 GIF + 一句话定位 + 可点 demo +
+  30 秒接入 + 差异化对比，能力边界后移；原有技术内容全部保留。
+- 修掉诚信缺口：把「换角色零人工」改为「`auto` 分区零人工 / `noF` 仍手量五区
+  PRESETS，P1 待做」，中英文同步。
+- `docs/INTEGRATION.md` 扩为库级 / 浏览器级 / Agent 级 / CLI 四层。
+- `tools/make_assets.py` 从六格图生成 `docs/assets/hero.png`（122 KB）与
+  `talk.gif`（180 KB），可重复生成，不引入新人工素材。
+
+### 15.4 回归与未完成
+
+回归全过：`identity_check no4` 15 帧逐字节一致 · `gate_layer_roles noF` G1~G5 ·
+`gate_mouth` 六格 PASS · `tsc --noEmit -p studio` · `check_boundaries.py` 四项。
+
+下一轮：P1 点选式自动建角、P2 MCP/Agent 接口、npm 正式发布与 tag、
+稳定在线 demo、topics/description、v0.2 release 与 48h 发射包、P4 合规对比页。
+按冷启动规律，发射必须排在 P1/P2 或稳定在线 demo 之后。
+

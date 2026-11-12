@@ -1,0 +1,50 @@
+{
+  "name": "codeavatar-runtime",
+  "version": "0.2.0",
+  "description": "Avatar-as-Code: a character is a diffable JSON, one line of code makes it speak in any page. Zero GPU, zero model weights, zero dependencies at runtime.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "unpkg": "./dist/standalone.js",
+  "jsdelivr": "./dist/standalone.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.cjs",
+      "default": "./dist/index.mjs"
+    },
+    "./standalone": "./dist/standalone.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "verify": "node scripts/verify.mjs",
+    "prepack": "node scripts/build.mjs && node scripts/verify.mjs"
+  },
+  "keywords": [
+    "avatar",
+    "svg",
+    "viseme",
+    "lip-sync",
+    "digital-human",
+    "vector",
+    "ssr",
+    "avatar-as-code"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ch0712/codeavatar.git",
+    "directory": "packages/avatar-runtime"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

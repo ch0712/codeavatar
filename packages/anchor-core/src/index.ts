@@ -11,6 +11,10 @@ export type { Pose, Viseme, Mood } from './types';
 export { FaceTraced, CHARS } from './FaceTraced';
 export type { CharData, CharKey, CharLayer } from './FaceTraced';
 
+// 零依赖 SVG 运行时（2026-11-12）：脱离 Remotion，Node/浏览器/Agent 直接出 SVG 字符串
+export { renderFaceSvg, renderFaceSvgByKey, renderFaceFrames, uniquifySvgIds } from './svg';
+export type { SvgRenderOptions } from './svg';
+
 // 表演驱动：perf.json → 逐帧 Pose（确定性，可复现）
 export { poseAt, moodLabels } from './perf';
 export type { Perf, PerfFrame, Caption } from './perf';

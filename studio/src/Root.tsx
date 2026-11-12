@@ -3,6 +3,7 @@ import { CalculateMetadataFunction, Composition } from 'remotion';
 import { Presenter, asPerf } from './Presenter';
 import type { PresenterProps } from './Presenter';
 import { VisemeGrid } from './VisemeGrid';
+import { RuntimeGrid } from './RuntimeGrid';
 
 const FPS = 30;
 
@@ -54,6 +55,16 @@ export const RemotionRoot: React.FC = () => {
         width={1920}
         height={1600}
         defaultProps={{ char: 'no4' as const }}
+      />
+      {/* 零依赖运行时 parity：frames 由 tools/runtime_parity_check.py 通过 --props 注入 */}
+      <Composition
+        id="RuntimeGrid"
+        component={RuntimeGrid}
+        durationInFrames={1}
+        fps={FPS}
+        width={1920}
+        height={1600}
+        defaultProps={{ frames: [] as string[] }}
       />
     </>
   );
