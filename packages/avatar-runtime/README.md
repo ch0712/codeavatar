@@ -83,7 +83,8 @@ Visual equivalence with the video pipeline is enforced by
 
 Full docs: [README](https://github.com/ch0712/codeavatar/blob/master/README.md) ·
 [Integration guide](https://github.com/ch0712/codeavatar/blob/master/docs/INTEGRATION.md) ·
-[Live single-file demo](https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/demo/runtime.html)
+[Single-file demo](https://github.com/ch0712/codeavatar/blob/master/demo/runtime.html)
+(clone and open locally — no hosted version yet)
 
 ## License
 
