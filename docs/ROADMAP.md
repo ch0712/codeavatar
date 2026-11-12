@@ -618,3 +618,11 @@ topics/description、v0.2 release 与 48h 发射包、P4 合规对比页。
 实测 `text/html / 1,102,727 B`、标题「codeavatar · 会说话的角色」，
 旧技术自述关键词命中 0 次。P1~P4 顺序不变。
 
+**第二轮定稿（同日，用户指定）**：标题一句话定稿为
+「**用代码驱动的AI数字人：可编辑、0算力成本**」；展示案例从 noF 换成第一个主角
+`no4`（观感更好）。已落地：hero 图与 demo 首屏标题/文案、`export.mjs` 默认角色
+改为 no4、`verify.mjs` parity 基准随展示角色切到 no4。体积代价如实记录：
+demo 单文件 1,077 KB → 4,571 KB（单帧 SVG 均值 258 KB，no4 层更多），为效果接受。
+回归全绿：parity 0/3,072,000 · identity no4 golden 15 帧逐字节 ·
+gate_layer_roles G1~G5 · build/verify 三入口逐字节一致 · tsc 无错误。
+

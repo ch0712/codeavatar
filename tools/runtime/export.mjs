@@ -2,7 +2,7 @@
 /**
  * 零依赖运行时导出器（突破路线 P0 第一刀）。
  *
- *   node tools/runtime/export.mjs --char noF
+ *   node tools/runtime/export.mjs --char no4
  *
  * 产物：
  *   demo/runtime.html              单文件、零依赖、打开即说话的角色 demo
@@ -27,7 +27,7 @@ const arg = (name, fallback) => {
   const i = argv.indexOf(name);
   return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback;
 };
-const charKey = arg('--char', 'noF');
+const charKey = arg('--char', 'no4');
 
 mkdirSync(OUT, { recursive: true });
 mkdirSync(DEMO, { recursive: true });
@@ -101,7 +101,7 @@ const visemes = ssr.GRID_ORDER;
 const demoHtml = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>codeavatar · 会说话的角色</title>
+<title>codeavatar · 用代码驱动的AI数字人</title>
 <style>
 :root{--bg:#f7f6f3;--card:#fff;--ink:#1d1c1a;--muted:#6b6862;--line:#e4e1da;--accent:#b4553f;--accent-soft:#fbeee9}
 *{box-sizing:border-box}
@@ -137,10 +137,10 @@ footer{margin-top:40px;font-size:12px;color:var(--muted);border-top:1px solid va
 </style></head><body><div class="wrap">
 <header>
   <div class="kicker">CODEAVATAR · 角色演示</div>
-  <h1>让你的角色开口说话</h1>
-  <p class="lead">点上面的口型和情绪，看看这张脸怎么变；输入一句话，它会跟着开口说话
-  （语音由浏览器本地合成，不联网）。同一份角色也能拿去出口播视频、放进网页，
-  或接在 Agent 的回答里。</p>
+  <h1>用代码驱动的AI数字人</h1>
+  <p class="lead"><strong>可编辑、0算力成本。</strong>点上面的口型和情绪，看这张脸怎么变；
+  输入一句话，它会跟着开口说话（语音由浏览器本地合成，不联网）。同一份角色也能拿去
+  出口播视频、放进网页，或接在 Agent 的回答里。</p>
 </header>
 
 <div class="grid">
@@ -152,7 +152,7 @@ footer{margin-top:40px;font-size:12px;color:var(--muted);border-top:1px solid va
       <h2>口型</h2><div class="row" id="visemes"></div>
       <h2>情绪</h2><div class="row" id="moods"></div>
       <h2>说一句话</h2>
-      <input type="text" id="text" value="大家好，我是小屿，很高兴见到你。">
+      <input type="text" id="text" value="大家好，很高兴见到你。">
       <button class="primary" id="speak">播放</button>
       <div class="hint">口型按节奏轮播（演示用，非音素对齐）；语音由浏览器本地合成，不联网。</div>
     </div>

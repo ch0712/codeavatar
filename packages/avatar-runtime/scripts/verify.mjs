@@ -29,7 +29,7 @@ const fail = (msg) => { throw new Error(msg); };
 const ORDER = ['M', 'A', 'O', 'E', 'I', 'U'];
 
 const charData = JSON.parse(
-  readFileSync(join(REPO, 'packages/anchor-core/src/chars/noF.json'), 'utf8'),
+  readFileSync(join(REPO, 'packages/anchor-core/src/chars/no4.json'), 'utf8'),
 );
 
 const cjs = require(join(DIST, 'index.cjs'));

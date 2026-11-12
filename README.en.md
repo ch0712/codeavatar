@@ -2,12 +2,12 @@
 
 [中文](README.md) | **English**
 
-![Make your character speak](docs/assets/hero.png)
+![AI digital human driven by code](docs/assets/hero.png)
 
-> **Give your character design a face that moves.** One character can speak and show
-> expression, and it is the *same face* in narrated videos, on a web page, and inside an
-> Agent's reply. Expressions and mouth shapes are numbers — change one value and the face
-> changes, with no redrawing and no re-recording.
+> **An AI digital human driven by code — editable, zero compute cost.** Feed in a design
+> sheet and one character can speak and show expression — the *same face* in narrated
+> videos, on a web page, and inside an Agent reply. Expressions and mouth shapes are
+> numbers; change one value and the face changes, with no redrawing and no re-recording.
 
 Change the line, the mood, or the timing of a mouth shape by editing data. You can see
 exactly what changed and roll back at any time. The art style comes from your own design

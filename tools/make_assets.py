@@ -86,19 +86,18 @@ def make_hero(cells: list[Image.Image]) -> Path:
     img = Image.new('RGB', (W, H), BG)
     d = ImageDraw.Draw(img)
 
-    # 左：主张——讲「能拿到什么效果」，不讲「省掉了什么技术」。
-    # 用户纠偏：零 React / 零 GPU / 零依赖是工程师自述，不是用户价值，
-    # 也不能变成「为了不用而不用」的自我设限。
-    d.text((48, 62), '角色，不止是一张图', font=f_small, fill=ACCENT)
-    d.text((48, 100), '让你的角色开口说话', font=f_title, fill=INK)
-    d.text((48, 166), '一张设定稿进去，视频、网页、Agent 里都是同一张脸', font=f_sub, fill=INK)
-    d.text((48, 204), '表情和口型是数字：改一个值就换一张脸，不用重画、不用重录', font=f_body, fill=MUTED)
+    # 左：主张——标题定稿（用户指定）：一句话说清是什么 + 两个关键性质。
+    d.text((48, 62), 'CODEAVATAR', font=f_small, fill=ACCENT)
+    d.text((48, 100), '用代码驱动的AI数字人', font=f_title, fill=INK)
+    d.text((48, 166), '可编辑、0算力成本', font=f_sub, fill=ACCENT)
+    d.text((48, 204), '一张设定稿进去，视频、网页、Agent 里都是同一张脸', font=f_body, fill=MUTED)
+    d.text((48, 230), '表情和口型是数字：改一个数字就换，不用重画、不用重录', font=f_body, fill=MUTED)
 
-    for i, label in enumerate(['会说话', '会做表情', '视频网页通用', '改数字就换脸']):
+    for i, label in enumerate(['可编辑', '0算力成本', '跨视频网页', '改数字就换脸']):
         x = 48 + i * 122
         w = 108 if i < 2 else 112
-        d.rounded_rectangle((x, 256, x + w, 288), radius=6, outline=LINE, fill='#1D1922')
-        d.text((x + 10, 262), label, font=f_small, fill=MUTED)
+        d.rounded_rectangle((x, 262, x + w, 294), radius=6, outline=LINE, fill='#1D1922')
+        d.text((x + 10, 268), label, font=f_small, fill=MUTED)
 
     d.line((48, 330, 520, 330), fill=LINE, width=1)
     d.text((48, 350), '同一份角色，出片、上线、实时驱动都不用重做', font=f_badge, fill=ACCENT)
@@ -128,7 +127,7 @@ def make_hero(cells: list[Image.Image]) -> Path:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument('--char', default='noF')
+    ap.add_argument('--char', default='no4')
     args = ap.parse_args()
     grid_path = ROOT / 'out' / f'{args.char}-grid.png'
     if not grid_path.exists():
