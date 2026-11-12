@@ -2,48 +2,41 @@
 
 **中文** | [English](README.en.md)
 
-![codeavatar：一个角色就是一份 JSON](docs/assets/hero.png)
+![让你的角色开口说话](docs/assets/hero.png)
 
-> **Avatar-as-Code**：一个角色就是一份可 diff 的 JSON，表演是一组数值，渲染是一个纯函数。
-> 一行代码让它在任何网页里说话 —— 零 GPU、零模型权重、无真人素材、非拟真合成。
+> **给你的设定稿一张会动的脸。** 一个角色会说话、会做表情，口播视频、网页、Agent 回答里
+> 用的都是同一张脸。表情和口型是数字，改一个值就换一张脸，不用重画、不用重录。
 
-这不是又一个「AI 数字人生成视频」项目。**角色是纯文本、表演是数字、画面是 SVG**，
-所以它可以进 git、进 CI、进网页、进 Agent，且每次渲染逐字节可复现。
+想改台词、换情绪、调整口型节奏，改数据就行；改过什么一目了然，随时退回上一版。
+画风由你的设定稿决定 —— 插画、品牌吉祥物、课件形象都能用。
 
 ## 先看效果（不用装任何东西）
 
 **[在线 demo：点开即看](https://codeavatar-runtime-demo.app.workbuddy.host/?sharecode=4PW2T4UUBH)** —
-浏览器直接打开，无需注册、无需安装。可以切换 6 种口型 / 3 种情绪，输入一句话让角色开口
-（浏览器本地语音合成）。
+浏览器直接打开，无需注册、无需安装。点口型和情绪，看这张脸怎么变；输入一句话，它会跟着开口说话。
 
-同一个页面也在仓库里：[`demo/runtime.html`](demo/runtime.html)，一个 **1.1 MB 的单文件 HTML**：
-clone 后双击打开即可，不需要起服务、不需要联网。页面里没有 React、没有 Remotion、
-没有构建步骤，只有 18 帧预渲染的 SVG。
+同一个页面也在仓库里：[`demo/runtime.html`](demo/runtime.html)，一个 **1.1 MB 的单文件 HTML**，
+clone 后双击打开即可（或 `python -m http.server 8000` 后访问 `/demo/runtime.html`）。
 
-> 本地 HTTP 预览：`python -m http.server 8000` → `http://localhost:8000/demo/runtime.html`。
-> 注意 CDN 上的 `standalone.js` 是 JS 运行时（可正常引用），但 jsDelivr 会以
-> `text/plain` 返回 HTML 文件，**不能用 CDN 链接直接当页面打开**；在线页面请用上面的托管链接。
+![同一个角色，三种口型](docs/assets/talk.gif)
 
-![六格口型循环：同一张脸，只有数值变了](docs/assets/talk.gif)
+> 说明：demo 里的「说话」是节奏轮播，还不是逐字对齐发音。想做真正对得上口型的成片，
+> 仓库里的 `aligned` 模式用字级时间戳驱动口型，配合 TTS 音轨直接出片。
 
-> 诚实标注：demo 里的「说话」是节奏轮播，**不是音素级对齐**。仓库里的 `aligned` 模式
-> 用字级时间戳驱动口型，用于真实成片。这个 demo 证明的是**渲染器可以脱离视频管线独立工作**。
-
-## 30 秒接入
+## 放进自己的页面
 
 运行时已经构建并通过验收，产物在 [`packages/avatar-runtime/dist/`](packages/avatar-runtime/dist/)。
 
 ```js
-// Node / bundler（ESM 或 CJS 均可，运行时零依赖）
 import { renderFaceSvg, NEUTRAL, VISEME } from 'codeavatar-runtime';
 
-const pose = { ...NEUTRAL, ...VISEME.A };          // 表演 = 数值
+const pose = { ...NEUTRAL, ...VISEME.A };          // 想让它张嘴，改这里
 document.querySelector('#stage').innerHTML =
-  renderFaceSvg(charJson, pose, { transparentBg: true });   // 角色 = 你自己的 JSON
+  renderFaceSvg(charJson, pose, { transparentBg: true });   // charJson = 你自己的角色数据
 ```
 
 ```html
-<!-- 浏览器免构建：standalone 挂到 window.CodeAvatar -->
+<!-- 不想装包，也可以直接用 CDN 脚本 -->
 <script src="https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/packages/avatar-runtime/dist/standalone.js"></script>
 <script>
   const svg = CodeAvatar.renderFaceSvg(CHAR, {
@@ -61,40 +54,39 @@ npm pack ./packages/avatar-runtime     # 生成 tgz 后 npm i ./codeavatar-runti
 # 或直接引用仓库内的 dist/ 文件与上面的 CDN 链接
 ```
 
-运行 `node packages/avatar-runtime/scripts/build.mjs && node packages/avatar-runtime/scripts/verify.mjs`
-可重新构建并自检；`verify.mjs` 会把产物渲染的 SVG 与**已通过 Remotion 逐像素校验**的 SSR 帧
-逐字节比对，确保发布产物没有偷偷漂移。
+> 小提示：jsDelivr 会把仓库里的 `.html` 当纯文本返回，所以 CDN 只用来引 `standalone.js`；
+> 要看完整页面请用上面的在线 demo 链接。
+
+想自己重建并验收：
+`node packages/avatar-runtime/scripts/build.mjs && node packages/avatar-runtime/scripts/verify.mjs`
+（会比对产物画面与基准，确保没有走样）。
 
 `charJson` 由调用方提供。运行包刻意**不内置任何角色数据**：角色美术资产的授权与代码不同，
 不能随 MIT 包再分发；你自己画的设定稿跑 `build` 生成的产物归你所有。
 详见[角色从哪来](#角色从哪来)与[授权](#授权)。
 
-## 为什么是另一条路
+## 改起来有多直接
 
-2026 年做「会说话的人」大多是 GPU 路线：扩散说话头、口型重绘、3DGS 驱动。它们画质更高，
-但也带来模型权重、显存、许可尽调、真人肖像/声纹授权与生成内容标识义务。
-codeavatar 走的是完全不同的形状：
-
-| | GPU 说话头 / 数字人平台 | codeavatar |
+| 你想做的事 | 通常得怎么做 | 在这里 |
 |:--|:--|:--|
-| 角色是什么 | 模型权重 / 真人视频 / 3D 资产 | **一份可 diff 的 JSON** |
-| 表演是什么 | 推理结果 / 关键帧绑定 | **一组数值**（15 通道 Pose / 6 口型 / 5 情绪） |
-| 渲染 | GPU 推理，逐帧生成 | **纯函数 → SVG 字符串**，CPU 毫秒级 |
-| 可复现 | 同输入不保证同输出 | **同输入逐字节同输出**，可进 CI |
-| 可嵌入网页 | 需要服务端或 WASM 推理 | **零依赖 SVG，直接 innerHTML** |
-| 素材与合规 | 真人肖像 / 声纹 / 权重许可 / AI 标识 | 纯插画、无真人素材、不生成拟真人脸 |
+| 换一个表情 | 重新生成一段 / 重画一帧 | 改一个数字，当场看到 |
+| 做 100 条口播 | 一条条跑、逐条检查 | 同一份角色数据批量出片，每次结果一样 |
+| 把角色放进网页或 App | 接一个推理服务，或另导出一套资产 | 一帧画面直接放进去 |
+| 同一个角色跨视频 / 网页 / Agent | 各存一份、各改一次 | 一份数据，哪里都是同一张脸 |
+| 改坏了想回退 | 重跑一遍碰运气 | 改过哪个表情一目了然，随时退回上一版 |
 
-**代价说在前面**：它是扁平插画级，不是写实。适合做画中画解说、产品引导、Agent 的可视化身、
-课件与私有化场景；不适合当电影级全屏主角。
+**画面档次说在前面**：目前是扁平插画级，不是写实真人。适合画中画解说、产品引导、
+Agent 的可视化身、课件；不适合电影级全屏主角。想让效果更好，随时可以引入更重的技术方案 ——
+「现在怎么做」是取舍，不是能力上限，也不会为了守住某个技术标签去牺牲画面。
 
 ## 能力边界（诚实标注）
 
 | 能 | 不能 |
 |:--|:--|
-| 插画级角色的**口型/表情/眉眼**参数化动画 | 真人级写实（那是 GPU 口型驱动模型的领域） |
+| 插画级角色的**口型/表情/眉眼**参数化动画 | 写实真人级画面（当前画风做不到） |
 | `auto` 分区下从设定稿自动描摹出角色 | 造出设定稿里没有画的平面（如鼻翼没有独立色块 → 就没有鼻子） |
 | 独立输出口播视频（画面/口型/字幕） | 全屏主体级美术（画中画/中等景别是舒适区） |
-| 同级 SSR 与 Remotion 成片渲染**逐像素一致** | 中文文本直接出音素级对齐口型（需拼音或字级时间戳） |
+| 视频和网页里是同一张脸，不会两套样子 | 中文文本直接出音素级对齐口型（需拼音或字级时间戳） |
 
 实测档次：**扁平插画级**。
 

@@ -28,6 +28,10 @@ mkdirSync(DIST, { recursive: true });
 const shared = {
   entryPoints: [ENTRY],
   bundle: true,
+  // esbuild 默认以 cwd 为 working dir，未压缩产物会把 cwd 相对路径写进注释
+  // （../../node_modules/... vs node_modules/...）。产物要提交入库，必须固定工作目录，
+  // 否则「从仓库根跑」与「从包目录跑」会产出不同的 index.cjs。
+  absWorkingDir: PKG,
   logLevel: 'warning',
   loader: { '.json': 'json' },
   // 浏览器里没有 process；同时让 React 走生产分支，去掉 dev 警告代码

@@ -86,23 +86,24 @@ def make_hero(cells: list[Image.Image]) -> Path:
     img = Image.new('RGB', (W, H), BG)
     d = ImageDraw.Draw(img)
 
-    # 左：主张
-    d.text((48, 62), 'AVATAR-AS-CODE', font=f_small, fill=ACCENT)
-    d.text((48, 100), '一个角色，就是一份 JSON', font=f_title, fill=INK)
-    d.text((48, 166), '一行代码，让它在任何网页里说话', font=f_sub, fill=INK)
-    d.text((48, 204), '角色 = 可 diff 的文本 · 表演 = 数值 · 渲染 = 纯函数', font=f_body, fill=MUTED)
+    # 左：主张——讲「能拿到什么效果」，不讲「省掉了什么技术」。
+    # 用户纠偏：零 React / 零 GPU / 零依赖是工程师自述，不是用户价值，
+    # 也不能变成「为了不用而不用」的自我设限。
+    d.text((48, 62), '角色，不止是一张图', font=f_small, fill=ACCENT)
+    d.text((48, 100), '让你的角色开口说话', font=f_title, fill=INK)
+    d.text((48, 166), '一张设定稿进去，视频、网页、Agent 里都是同一张脸', font=f_sub, fill=INK)
+    d.text((48, 204), '表情和口型是数字：改一个值就换一张脸，不用重画、不用重录', font=f_body, fill=MUTED)
 
-    # 只写事实，不写法律结论（项目红线：不代替第三方判断合规义务）
-    for i, label in enumerate(['零 GPU', '零模型权重', '无真人素材', '非拟真合成']):
+    for i, label in enumerate(['会说话', '会做表情', '视频网页通用', '改数字就换脸']):
         x = 48 + i * 122
-        w = 108 if i < 2 else (112 if i == 2 else 112)
+        w = 108 if i < 2 else 112
         d.rounded_rectangle((x, 256, x + w, 288), radius=6, outline=LINE, fill='#1D1922')
         d.text((x + 10, 262), label, font=f_small, fill=MUTED)
 
     d.line((48, 330, 520, 330), fill=LINE, width=1)
-    d.text((48, 350), 'renderFaceSvg(char, pose) → SVG', font=f_badge, fill=ACCENT)
-    d.text((48, 380), '同一份 FaceTraced，既能出 MP4，也能零依赖嵌进网页', font=f_small, fill=MUTED)
-    d.text((48, 420), 'MIT · 纯插画 · 无真人素材 · 确定性可复现', font=f_small, fill=MUTED)
+    d.text((48, 350), '同一份角色，出片、上线、实时驱动都不用重做', font=f_badge, fill=ACCENT)
+    d.text((48, 380), '画风由你的设定稿决定：插画、吉祥物、课件形象都能用', font=f_small, fill=MUTED)
+    d.text((48, 420), '自己画的设定稿，产物归你 · 代码 MIT', font=f_small, fill=MUTED)
 
     # 右：M / A / O 三态（A 大开、O 收圆，一眼看出是口型驱动）
     labels = ['M 闭口', 'A 大开', 'O 收圆']
@@ -117,8 +118,8 @@ def make_hero(cells: list[Image.Image]) -> Path:
         img.paste(shot, (x, y0))
         d.rectangle((x, y0, x + thumb[0] - 1, y0 + thumb[1] - 1), outline=LINE, width=1)
         d.text((x, y0 + thumb[1] + 10), label, font=f_badge, fill=INK)
-    d.text((x0, 366), '6 口型 / 5 情绪 / 15 通道姿态', font=f_small, fill=MUTED)
-    d.text((x0, 396), '↑ 同一张脸，只有数值变了', font=f_small, fill=MUTED)
+    d.text((x0, 366), '上面三张，是同一个角色的三种口型', font=f_small, fill=MUTED)
+    d.text((x0, 396), '表情说改就改，不用重新画、不用重新生成', font=f_small, fill=MUTED)
 
     out = ASSETS / 'hero.png'
     img.save(out, optimize=True)

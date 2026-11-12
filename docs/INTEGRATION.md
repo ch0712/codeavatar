@@ -1,9 +1,13 @@
 # 第三方集成指南
 
-> 三条入口：**库级 / 浏览器级**（零依赖 SVG 运行时，推荐）、**Agent 级**（文本 → 数值 → 帧）、
-> **CLI 级**（成片工具链）。本页给出全部契约：调用、数据结构、退出码、版本兼容。
+> 三条入口：**库级 / 浏览器级**（给网页、静态站点、Agent 回答里放一张会动的脸，推荐）、
+> **Agent 级**（文本 → 数值 → 帧）、**CLI 级**（口播成片工具链）。
+> 本页给出全部契约：调用、数据结构、退出码、版本兼容。
 
-## A. 库级 / 浏览器级接入（零依赖运行时）
+接入后能拿到什么：一张会说话、会做表情的脸，同一份角色数据在视频、网页、Agent 里
+是同一张脸；换表情只改数值，结果可逐字节复现。
+
+## A. 库级 / 浏览器级接入（推荐）
 
 `packages/avatar-runtime/` 是唯一面向第三方消费的运行时包。它**不复制渲染器**，
 只是把 `packages/anchor-core/src/FaceTraced.tsx` 的纯函数适配层打包成可分发的形态。
@@ -22,6 +26,10 @@ import { renderFaceSvg, renderFaceFrames, NEUTRAL, VISEME, MOODS } from 'codeava
 <!-- CDN（无需 npm、无需构建） -->
 <script src="https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/packages/avatar-runtime/dist/standalone.js"></script>
 ```
+
+> **实现说明**：当前这一版把帧输出成 SVG 字符串，因此不需要在页面里跑视频管线或推理服务。
+> 这是眼下的做法，**不是能力上限** —— 如果换成更重的技术方案能让画面更好，随时可以换；
+> 技术选择服务于效果，不为缩减资源而缩减资源。
 
 ### API
 
@@ -51,8 +59,8 @@ document.querySelector('#stage').innerHTML = svg;
 
 ### Agent 级：文字 → 数值 → 帧
 
-Agent 不需要 GPU，也不需要视频管线；输出一段文本后，用现成的节奏/音素映射生成
-Pose 序列，再一次性渲染成 SVG 帧：
+Agent 回答里可以直接带上一张会动的脸，不必先渲染一段视频再贴进去：输出文本后，
+用节奏/音素映射生成 Pose 序列，一次性渲染成帧，随回答一起推给浏览器。
 
 ```js
 import { renderFaceFrames, NEUTRAL, VISEME } from 'codeavatar-runtime';
@@ -70,9 +78,9 @@ const frames = renderFaceFrames(charJson, poses, { transparentBg: true, idPrefix
 ### 可复现性与验收
 
 - `renderFaceSvg` 是纯函数：同 `data + pose + opts` → 逐字节相同字符串。
-- 运行时与 Remotion 成片共用同一个 `FaceTraced`。`tools/runtime_parity_check.py`
-  让两张图走同一条 `remotion still` 管线，只换 SVG 来源，逐像素比对
-  （当前 `noF`：0 / 3,072,000 像素差异）。
+- 运行时与 Remotion 成片共用同一个 `FaceTraced`，所以视频和网页里不会出现两套样子。
+  `tools/runtime_parity_check.py` 让两张图走同一条 `remotion still` 管线，只换 SVG 来源，
+  逐像素比对（当前 `noF`：0 / 3,072,000 像素差异）。
 - `packages/avatar-runtime/scripts/verify.mjs` 校验 ESM / CJS / CDN 三入口逐字节一致，
   并与上述 parity 帧对齐，同时检查产物未夹带角色资产、`d.ts` 契约未漂移。
 

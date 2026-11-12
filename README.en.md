@@ -2,85 +2,100 @@
 
 [中文](README.md) | **English**
 
-![codeavatar: a character is a JSON file](docs/assets/hero.png)
+![Make your character speak](docs/assets/hero.png)
 
-> **Avatar-as-Code**: a character is a diffable JSON file, a performance is a set of numbers,
-> and rendering is a pure function. One line of code makes it speak in any web page —
-> no GPU, no model weights, no real-person footage, no photoreal synthesis.
+> **Give your character design a face that moves.** One character can speak and show
+> expression, and it is the *same face* in narrated videos, on a web page, and inside an
+> Agent's reply. Expressions and mouth shapes are numbers — change one value and the face
+> changes, with no redrawing and no re-recording.
 
-This is not another "AI talking-head video generator". The character is **plain text**,
-the performance is **numbers**, and the frame is **SVG** — so it fits in git, CI, a web page,
-or an Agent, and every render is byte-for-byte reproducible.
+Change the line, the mood, or the timing of a mouth shape by editing data. You can see
+exactly what changed and roll back at any time. The art style comes from your own design
+sheet — an illustration, a brand mascot, or a courseware character.
 
 ## See it first (install nothing)
 
 **[Live demo — open it in your browser](https://codeavatar-runtime-demo.app.workbuddy.host/?sharecode=4PW2T4UUBH)** —
-no sign-up, no install. Switch between 6 visemes / 3 moods, or type a sentence and let the
-character speak (browser-local TTS).
+no sign-up, no install. Switch between 6 mouth shapes / 3 moods and watch the face change,
+or type a sentence and let the character speak (browser-local TTS, no network).
 
 The same page also lives in the repo: [`demo/runtime.html`](demo/runtime.html), a
-**single 1.1 MB HTML file** you can double-click after cloning — no server, no network,
-no React, no Remotion, no build step, just 18 pre-rendered SVG frames.
+**single 1.1 MB HTML file** you can double-click after cloning — it works offline, with
+18 pre-rendered SVG frames built in.
 
 > For a local HTTP preview: `python -m http.server 8000` →
-> `http://localhost:8000/demo/runtime.html`. The CDN `standalone.js` works fine as a script,
-> but jsDelivr serves HTML files as `text/plain`, so a CDN link **cannot** be used to open
-> this page directly — use the hosted link above.
+> `http://localhost:8000/demo/runtime.html`. Small note: jsDelivr serves `.html` from a
+> repo as `text/plain`, so the CDN is only for `standalone.js`; use the hosted link above
+> for the full page.
 
-![Six-viseme loop: same face, only numbers changed](docs/assets/talk.gif)
+![One face, six mouth shapes](docs/assets/talk.gif)
 
 > Honest note: the demo's "speaking" is a rhythmic carousel, **not phoneme alignment**.
-> The repo's `aligned` mode drives visemes from word-level timestamps for real videos.
-> What this demo proves is that **the renderer works outside the video pipeline**.
+> For a real video where the mouth lands on the spoken words, the repo's `aligned` mode
+> drives mouth shapes from word-level timestamps and renders the clip with its audio track.
 
-## 30-second integration
+## Put it in your own page
+
+The runtime is built and verified; the artifacts are in
+[`packages/avatar-runtime/dist/`](packages/avatar-runtime/dist/).
 
 ```js
 import { renderFaceSvg, NEUTRAL, VISEME } from 'codeavatar-runtime';
 
-const pose = { ...NEUTRAL, ...VISEME.A };
+const pose = { ...NEUTRAL, ...VISEME.A };          // want it to open its mouth? change this
 document.querySelector('#stage').innerHTML =
-  renderFaceSvg(charJson, pose, { transparentBg: true });
+  renderFaceSvg(charJson, pose, { transparentBg: true });   // charJson = your own character
 ```
 
 ```html
+<!-- No install: use the CDN script directly -->
 <script src="https://cdn.jsdelivr.net/gh/ch0712/codeavatar@master/packages/avatar-runtime/dist/standalone.js"></script>
 <script>
-  document.querySelector('#stage').innerHTML = CodeAvatar.renderFaceSvg(CHAR, {
+  const svg = CodeAvatar.renderFaceSvg(CHAR, {
     ...CodeAvatar.NEUTRAL, ...CodeAvatar.VISEME.O
   });
+  document.querySelector('#stage').innerHTML = svg;
 </script>
 ```
 
-**Release status (stated plainly)**: the package layout and all three entry points are built
-and verified, but `codeavatar-runtime` is **not yet published to npm**. Until then use
-`npm pack ./packages/avatar-runtime`, the in-repo `dist/` files, or the CDN link above.
-The runtime deliberately ships **no character data**: character artwork has a different
-license and cannot be redistributed inside an MIT package.
+**Release status (stated plainly)**: the package layout, all three entry points (ESM / CJS /
+CDN) and the verification chain are ready, but `codeavatar-runtime` is **not yet published
+to npm**. Until then use `npm pack ./packages/avatar-runtime`, the in-repo `dist/` files,
+or the CDN link above.
 
-## Why this is a different path
+To rebuild and verify it yourself:
+`node packages/avatar-runtime/scripts/build.mjs && node packages/avatar-runtime/scripts/verify.mjs`
+(compares the built output against the reference frames so nothing drifts).
 
-| | GPU talking heads / avatar platforms | codeavatar |
+`charJson` is supplied by you. The runtime **intentionally ships no character data**: the
+character artwork has a different licence and cannot be redistributed inside an MIT package;
+anything you generate from a sheet you drew is yours. See [Where characters come from](#usage)
+and [License](#license).
+
+## How directly you can change things
+
+| What you want to do | The usual way | Here |
 |:--|:--|:--|
-| Character | model weights / real-person footage / 3D asset | **a diffable JSON file** |
-| Performance | inference output / keyframe rigging | **numbers** (15 pose channels / 6 visemes / 5 moods) |
-| Rendering | GPU inference, frame by frame | **pure function → SVG string**, CPU milliseconds |
-| Reproducible | same input may differ | **byte-identical output**, CI-friendly |
-| Embeddable in a page | needs a server or WASM inference | **zero-dependency SVG**, plain `innerHTML` |
-| Assets & compliance | likeness / voice rights / weight licences / AI labelling | illustration only, no real-person footage |
+| Change an expression | regenerate a clip / redraw a frame | change one number, see it at once |
+| Produce 100 narrated clips | run and check them one by one | batch from the same character data, identical every time |
+| Put the character in a page or app | stand up an inference service, or export another asset set | drop a frame straight in |
+| Use one character across video / web / Agent | keep several copies, edit each one | one file, the same face everywhere |
+| Roll back a bad edit | re-run and hope | the diff shows which expression changed; go back at any time |
 
-**The trade-off up front**: this is flat illustration, not photoreal. Good for picture-in-picture
-narration, product guides, a visible face for an Agent, courseware and private deployments;
-not for a cinematic full-screen protagonist.
+**About the visual grade, up front**: this is flat illustration, not photoreal. Good for
+picture-in-picture narration, product guides, a visible face for an Agent, courseware and
+private deployments; not for a cinematic full-screen protagonist. **If a heavier technical
+stack makes the result better, we will use it** — how it works today is a trade-off, not a
+limit, and we will not hold on to a technical label at the cost of the picture.
 
 ## Capability boundary (honest notes)
 
 | Works | Does not work |
 |:--|:--|
-| Parameterised **lip / expression / brow** animation for illustration-grade characters | Photoreal humans (that is the domain of GPU lip-sync models) |
+| Parameterised **mouth / expression / brow** animation for illustration-grade characters | Photoreal humans (that is the domain of GPU lip-sync models) |
 | Automatic tracing from a reference sheet in `auto` zone mode | Creating planes the sheet never drew (no separate nostril patch → no nose) |
 | Standalone talking-head video (picture / lip-sync / captions) | Full-screen hero art (picture-in-picture and medium shots are the comfort zone) |
-| SSR output **pixel-identical** to the Remotion render | Phoneme-aligned lip-sync from raw Chinese text (needs pinyin or word timestamps) |
+| The same face in video and on the web — not two different looks | Phoneme-aligned lip-sync from raw Chinese text (needs pinyin or word timestamps) |
 
 Measured grade: **flat illustration**. Good enough for a PiP narrator or a vertical talking head.
 
@@ -88,18 +103,24 @@ Measured grade: **flat illustration**. Good enough for a PiP narrator or a verti
 > In reality `auto` zoning works without manual input on clean sheets, while the full-lip
 > character `noF` currently uses **hand-measured five-zone PRESETS**. Turning that into a
 > browser point-and-click annotation step is tracked as P1 in
-> [`docs/BREAKTHROUGH-2026-11.md`](docs/BREAKTHROUGH-2026-11.md).
+> [`docs/BREAKTHROUGH-2026-11.md`](docs/BREAKTHROUGH-2026-11.md). If swapping in your own
+> sheet does not work out of the box, that is a gap on our side, not a mistake on yours.
 
 ## Layout
 
 ```
 packages/anchor-core/     TS capability package (single source of truth)
   src/types.ts              contract: 16 pose channels / 6 visemes / 5 moods
-  src/FaceTraced.tsx        parameterised face renderer (pure SVG, no textures)
+  src/FaceTraced.tsx        parameterised face renderer (pure SVG, no textures) ★ only renderer
+  src/svg.ts                SSR adapter: renderFaceSvg → SVG string
   src/perf.ts               perf.json → per-frame Pose (deterministic)
   src/chars/*.json          character data (trace output, one file per character)
   src/chars/index.ts        auto-generated character registry
   scripts/check_boundaries.py   cross-platform package boundary check (run before extraction / publishing)
+packages/avatar-runtime/   distributable runtime (ESM / CJS / CDN)
+  dist/index.mjs | index.cjs | standalone.js | index.d.ts
+demo/runtime.html          single-file demo (open it and the character speaks)
+studio/                   Remotion project (talking-head output)
 tools/                    Python toolchain
   sheet_gate.py             reference sheet compliance gate
   zone_auto.py              automatic facial-zone localisation (structural landmarks)
@@ -117,9 +138,12 @@ tools/                    Python toolchain
   tts.py                    TTS audio (edge-tts default / pyttsx3 offline fallback)
   tts_volc.py               Volcengine Doubao TTS 2.0 (word timestamps for aligned mode)
   codeavatar.py             unified CLI
-studio/                   Remotion project (talking-head output)
+  runtime_parity_check.py   visual-equivalence gate for the runtime
+  make_assets.py            README visual asset generator
 docs/SPEC.md              hard spec for reference sheets (with negative list)
 docs/TIMING.md            sampling / interpolation / event tracks / track blending spec (assertion evidence per rule)
+docs/BREAKTHROUGH-2026-11.md   breakthrough roadmap and reasoning
+docs/INTEGRATION.md       third-party integration contract
 docs/CHANGELOG-char-automation.md   measured log and pitfalls of the automation work
 docs/LICENSES.md          licensing (code MIT / character assets / third-party split)
 CONTRIBUTING.md           contribution guide (pre-commit gates / four hard rules / PR bar)
@@ -128,6 +152,10 @@ SECURITY.md               security policy and private reporting channel
 
 ## Contracts and single source of truth
 
+- **One renderer**: `FaceTraced.tsx`. SSR, film output, demo and the distributable package
+  all reuse it; a second renderer is not allowed. `tools/runtime_parity_check.py` enforces
+  this with two images from the same render pipeline, compared pixel by pixel
+  (currently `noF`: 0 / 3,072,000 differing pixels).
 - **Pose ranges**: the single source of truth is `POSE_RANGES` in `packages/anchor-core/src/types.ts`
   (a machine-checkable constant; the renderer clamp and the schema validator both read it).
   Previously it was a comment-level convention that disagreed with actual behaviour
@@ -232,9 +260,12 @@ Windows and Linux are supported. Requires Python 3.11, Node.js 20, FFmpeg and th
 
 Two categories are **not** covered by MIT, see `docs/LICENSES.md`:
 
-- **Character art assets** (`chars/*.json`, the reference sheets under `examples/`) are all rights
-  reserved, provided as pipeline samples only; no commercial use or redistribution. Products
-  generated from your own sheets are yours and are not restricted by this clause.
+- **Character art assets** (`chars/*.json`, the reference sheets under `examples/`, the sample
+  frames embedded in `demo/runtime.html` and the sample images under `docs/assets/`) are all
+  rights reserved, provided as pipeline samples only; no commercial use or redistribution.
+  Products generated from your own sheets are yours and are not restricted by this clause.
+  This is also why `codeavatar-runtime` ships no character data; the page code and the runtime
+  package themselves remain MIT.
 - **Third-party dependencies keep their own terms.** Remotion 4.x is dual-licensed — companies
   beyond the size limit must buy a commercial licence. This repository's MIT **cannot** satisfy
   Remotion's licensing requirements on your behalf.

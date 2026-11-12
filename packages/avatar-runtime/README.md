@@ -1,8 +1,9 @@
 # codeavatar-runtime
 
-**Avatar-as-Code.** A character is a diffable JSON file, a performance is a set of numbers,
-and rendering is a pure function. One call returns a standalone SVG string —
-no GPU, no model weights, no DOM, no Remotion, no runtime dependencies.
+**Put a face that speaks and shows expression into your own page.** Give it a character file
+and a set of expression numbers; it returns one SVG frame. Use it for a talking head on a
+web page, a batch of frames for narrated video, or a face that reacts inside an Agent reply.
+Change one number and the face changes — no redrawing, no re-recording.
 
 ```js
 import { renderFaceSvg, NEUTRAL, VISEME } from 'codeavatar-runtime';
@@ -11,6 +12,9 @@ const pose = { ...NEUTRAL, ...VISEME.A };
 document.querySelector('#stage').innerHTML =
   renderFaceSvg(charJson, pose, { transparentBg: true, idPrefix: 'a1' });
 ```
+
+**[Live demo](https://codeavatar-runtime-demo.app.workbuddy.host/?sharecode=4PW2T4UUBH)** ·
+[Single-file demo source](https://github.com/ch0712/codeavatar/blob/master/demo/runtime.html)
 
 ## Install
 
@@ -69,22 +73,24 @@ python tools/codeavatar.py build my-sheet.png mychar
 
 The resulting JSON is yours. Pass it as `data`; the runtime needs nothing else.
 
-## Why this exists
+## Implementation notes (not a capability limit)
 
-Most talking-head systems need model weights, a GPU, a server, or WASM inference.
-Here the whole renderer is a pure React component that can be server-rendered to SVG,
-so a character can live in a static page, a CI artifact, or an Agent's response.
+Today the renderer is a React component server-rendered into an SVG string, so a character
+fits in a static page, a CI artifact, or an Agent response without standing up a service.
+That is the current implementation choice, **not a constraint on the product**: if a heavier
+stack makes the picture better, it can be used. We do not cut resources for their own sake —
+we care about the result.
+
 The renderer is **not duplicated** in this package — it is bundled from
-`packages/anchor-core/src/FaceTraced.tsx`, the single source of truth.
+`packages/anchor-core/src/FaceTraced.tsx`, the single source of truth, so a character looks
+the same in video and on a web page.
 
 Visual equivalence with the video pipeline is enforced by
 `tools/runtime_parity_check.py` (pixel-identical six-viseme grid) and
 `scripts/verify.mjs` in this package (byte-identical frames across all three builds).
 
 Full docs: [README](https://github.com/ch0712/codeavatar/blob/master/README.md) ·
-[Integration guide](https://github.com/ch0712/codeavatar/blob/master/docs/INTEGRATION.md) ·
-[Live demo](https://codeavatar-runtime-demo.app.workbuddy.host/?sharecode=4PW2T4UUBH) ·
-[Single-file demo source](https://github.com/ch0712/codeavatar/blob/master/demo/runtime.html)
+[Integration guide](https://github.com/ch0712/codeavatar/blob/master/docs/INTEGRATION.md)
 
 ## License
 

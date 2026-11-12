@@ -9,7 +9,7 @@
  *   out/runtime/parity-grid.html   与 studio/src/VisemeGrid.tsx 同布局的六格图（parity 校验用）
  *
  * 实现：esbuild 把 ssr-entry.ts 打成临时 CJS → Node 内调用 renderFaceSvg →
- *      把 SVG 帧内嵌进 HTML。浏览器端不需要 React / Remotion / 任何构建。
+ *      把 SVG 帧内嵌进 HTML；浏览器端只负责换帧。这是当前实现，不是能力上限。
  */
 import { build } from 'esbuild';
 import { createRequire } from 'node:module';
@@ -101,7 +101,7 @@ const visemes = ssr.GRID_ORDER;
 const demoHtml = `<!doctype html>
 <html lang="zh-CN"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>codeavatar · Avatar-as-Code 运行时验证</title>
+<title>codeavatar · 会说话的角色</title>
 <style>
 :root{--bg:#f7f6f3;--card:#fff;--ink:#1d1c1a;--muted:#6b6862;--line:#e4e1da;--accent:#b4553f;--accent-soft:#fbeee9}
 *{box-sizing:border-box}
@@ -136,10 +136,11 @@ footer{margin-top:40px;font-size:12px;color:var(--muted);border-top:1px solid va
 @media(max-width:860px){.grid{grid-template-columns:1fr}.facts{grid-template-columns:1fr}}
 </style></head><body><div class="wrap">
 <header>
-  <div class="kicker">Avatar-as-Code · runtime spike</div>
-  <h1>一个角色就是一份 JSON，一行代码让它在网页里说话</h1>
-  <p class="lead">这个页面没有 React、没有 Remotion、没有构建步骤、没有 GPU。所有画面都是构建期由同一个
-  <code>FaceTraced</code> 渲染出的纯 SVG 字符串，浏览器只负责换帧。</p>
+  <div class="kicker">CODEAVATAR · 角色演示</div>
+  <h1>让你的角色开口说话</h1>
+  <p class="lead">点上面的口型和情绪，看看这张脸怎么变；输入一句话，它会跟着开口说话
+  （语音由浏览器本地合成，不联网）。同一份角色也能拿去出口播视频、放进网页，
+  或接在 Agent 的回答里。</p>
 </header>
 
 <div class="grid">
@@ -159,27 +160,28 @@ footer{margin-top:40px;font-size:12px;color:var(--muted);border-top:1px solid va
 </div>
 
 <div class="facts">
-  <div class="fact"><b>0</b><span>运行时依赖 · 页面只有 SVG 与原生 JS</span></div>
-  <div class="fact"><b>${demoFrames.length}</b><span>预渲染 SVG 帧 · 约 ${(demoFrames.length * avgBytes / 1024).toFixed(0)} KB 可 diff 文本</span></div>
-  <div class="fact"><b>0</b><span>GPU / 模型权重 / 真人素材 / 拟真合成</span></div>
+  <div class="fact"><b>6</b><span>种口型 · 从闭唇到大开，随时切换</span></div>
+  <div class="fact"><b>3</b><span>种情绪演示 · 中性、高兴、认真</span></div>
+  <div class="fact"><b>1</b><span>份角色数据 · 视频、网页、Agent 都是同一张脸</span></div>
 </div>
 
 <div class="card" style="margin-top:24px">
-  <h2>接入方式</h2>
+  <h2>想放进自己的页面？</h2>
   <pre><code>import { renderFaceSvg, VISEME, NEUTRAL } from 'codeavatar-runtime';
 
 const pose = { ...NEUTRAL, ...VISEME.A };
 document.querySelector('#stage').innerHTML =
   renderFaceSvg(charJson, pose, { transparentBg: true, idPrefix: 'a1' });</code></pre>
-  <div class="hint"><code>charJson</code> 是你自己的角色 JSON —— 运行包刻意不内置角色资产
-  （授权与代码不同）。包已构建并通过验收，<strong>尚未发布到 npm</strong>；
+  <div class="hint"><code>charJson</code> 是你自己的角色数据 —— 自己画一张设定稿，跑一次
+  <code>build</code> 就有。包已构建并通过验收，<strong>尚未发布到 npm</strong>；
   当前可用 <code>npm pack ./packages/avatar-runtime</code>、仓库内 <code>dist/</code> 或 CDN。</div>
+  <div class="hint">实现说明：这些画面由同一个渲染器预先生成，所以页面打开就能用、不联网。
+  这是当前的做法，<strong>不是能力上限</strong> —— 哪种方案能让效果更好，就可以用哪种。</div>
 </div>
 
 <div class="note">
-  诚实标注：本页的「说话」是节奏演示，不是音素级对齐。仓库内已有 <code>aligned</code> 模式
-  （字级时间戳驱动口型）用于真实成片。  本页证明的是<strong>渲染器可脱离视频管线独立工作</strong>，
-  不是证明口型精度。
+  说明：这里的「说话」是按节奏轮播，还不是逐字对齐发音。想做真正对得上口型的成片，
+  仓库里的 <code>aligned</code> 模式用字级时间戳驱动口型，配合 TTS 音轨直接出片。
 </div>
 
 <div class="note">
