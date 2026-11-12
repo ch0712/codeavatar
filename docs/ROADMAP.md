@@ -614,5 +614,7 @@ topics/description、v0.2 release 与 48h 发射包、P4 合规对比页。
 `docs/INTEGRATION.md`、`docs/BREAKTHROUGH-2026-11.md` §0/§4/§7。
 判断轨迹保留在文档中，不删档。
 
-**待办**：线上 demo 仍是旧文案，覆盖发布需本轮单独授权；P1~P4 顺序不变。
+**线上 demo 已同步**：本轮经用户明确授权覆盖发布同一分享链接（链接不变）。
+实测 `text/html / 1,102,727 B`、标题「codeavatar · 会说话的角色」，
+旧技术自述关键词命中 0 次。P1~P4 顺序不变。
 
