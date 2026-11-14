@@ -1,0 +1,185 @@
+{
+  "version": 2,
+  "id": "story-v2",
+  "title": "同一份程序，三种画幅，两种语言",
+  "canvas": [1920, 1080],
+  "fps": 30,
+  "chars": {
+    "lead": { "key": "no4", "anchor": "lead", "scale": 0.42 }
+  },
+  "locks": {
+    "lead": { "key": "no4" }
+  },
+  "compositions": {
+    "wide": {
+      "id": "wide",
+      "camera": { "zoom": 1.0, "x": 0, "y": 0 }
+    },
+    "portrait": {
+      "id": "portrait",
+      "camera": { "zoom": 1.1, "x": 0, "y": -40 }
+    },
+    "closeup": {
+      "id": "closeup",
+      "camera": { "zoom": 1.35, "x": -60, "y": 0 }
+    }
+  },
+  "variants": {
+    "landscape": { "id": "landscape", "canvas": [1920, 1080], "mode": "contain" },
+    "vertical": { "id": "vertical", "canvas": [1080, 1920], "mode": "cover", "focus": [375, 500], "hideLayers": ["notes"] },
+    "square": { "id": "square", "canvas": [1080, 1080], "mode": "cover", "focus": [280, 500], "hideLayers": ["notes"] }
+  },
+  "locales": {
+    "zh": {
+      "open": "一张设定稿，只是数据。",
+      "editable": "改一个数字，画面就变。",
+      "world": "再给它一个世界。",
+      "story": "最后，用代码讲故事。"
+    },
+    "en": {
+      "open": "A design sheet is just data.",
+      "editable": "Change one number, the picture changes.",
+      "world": "Then give it a world.",
+      "story": "Finally, tell a story in code."
+    }
+  },
+  "scenes": {
+    "field": {
+      "id": "field",
+      "words": "米色画布：可编辑的参数网格",
+      "bg": "#F9F2E4",
+      "layers": [
+        {
+          "id": "grid",
+          "role": "far",
+          "shapes": [
+            { "kind": "line", "x1": 760, "y1": 120, "x2": 760, "y2": 960, "stroke": "#E4D8C4", "width": 1 }
+          ],
+          "repeat": { "count": 7, "dx": 175, "dy": 0 }
+        },
+        {
+          "id": "rulers",
+          "role": "far",
+          "shapes": [
+            { "kind": "line", "x1": 760, "y1": 300, "x2": 1880, "y2": 300, "stroke": "#E4D8C4", "width": 1 },
+            { "kind": "line", "x1": 760, "y1": 520, "x2": 1880, "y2": 520, "stroke": "#E4D8C4", "width": 1 },
+            { "kind": "line", "x1": 760, "y1": 740, "x2": 1880, "y2": 740, "stroke": "#E4D8C4", "width": 1 }
+          ]
+        },
+        {
+          "id": "notes",
+          "role": "near",
+          "shapes": [
+            { "kind": "text", "x": 820, "y": 250, "text": "PROGRAM  ·  diff-able", "size": 30, "fill": "#8A7A66", "weight": 600 },
+            { "kind": "text", "x": 820, "y": 470, "text": "STATE  ·  sparse", "size": 30, "fill": "#8A7A66", "weight": 600 },
+            { "kind": "text", "x": 820, "y": 690, "text": "FRAME  ·  pure SVG", "size": 30, "fill": "#8A7A66", "weight": 600 }
+          ]
+        }
+      ],
+      "anchors": { "lead": [90, 70] }
+    },
+    "night": {
+      "id": "night",
+      "words": "暗色世界：重复图元构成的场景",
+      "bg": "#141117",
+      "layers": [
+        {
+          "id": "stars",
+          "role": "far",
+          "shapes": [
+            { "kind": "circle", "cx": 820, "cy": 160, "r": 3, "fill": "#4A4356", "opacity": 0.9 }
+          ],
+          "repeat": { "count": 9, "dx": 125, "dy": 0 }
+        },
+        {
+          "id": "pillars",
+          "role": "mid",
+          "shapes": [
+            { "kind": "rect", "x": 760, "y": 380, "w": 74, "h": 520, "fill": "#241F2C", "r": 6 },
+            { "kind": "rect", "x": 760, "y": 356, "w": 74, "h": 14, "fill": "#39304A", "r": 4 }
+          ],
+          "repeat": { "count": 6, "dx": 200, "dy": 0 }
+        },
+        {
+          "id": "floor",
+          "role": "mid",
+          "shapes": [
+            { "kind": "rect", "x": 0, "y": 900, "w": 1920, "h": 180, "fill": "#1D1922" },
+            { "kind": "line", "x1": 0, "y1": 900, "x2": 1920, "y2": 900, "stroke": "#3A3048", "width": 2 }
+          ]
+        },
+        {
+          "id": "notes",
+          "role": "near",
+          "shapes": [
+            { "kind": "text", "x": 820, "y": 350, "text": "SCENE  ·  program + words", "size": 28, "fill": "#6E627F", "weight": 600 },
+            { "kind": "text", "x": 820, "y": 420, "text": "SHOT  ·  timeline + camera", "size": 28, "fill": "#6E627F", "weight": 600 }
+          ]
+        }
+      ],
+      "anchors": { "lead": [90, 70] }
+    }
+  },
+  "shots": [
+    {
+      "id": "a",
+      "scene": "field",
+      "duration": 2.0,
+      "composition": "wide",
+      "tracks": [
+        {
+          "id": "performance",
+          "events": [
+            { "at": 0, "cast": { "lead": { "viseme": "M", "mood": "中性" } } },
+            { "at": 0.6, "cast": { "lead": { "viseme": "A" } } },
+            { "at": 1.2, "cast": { "lead": { "viseme": "O", "mood": "轻松" } } }
+          ]
+        },
+        {
+          "id": "subtitle",
+          "events": [
+            { "at": 0, "captionKey": "open" },
+            { "at": 1.2, "captionKey": "editable" }
+          ]
+        },
+        {
+          "id": "camera",
+          "events": [
+            { "at": 0, "camera": { "zoom": 1.0 } },
+            { "at": 1.2, "camera": { "zoom": 1.12, "y": -20 } }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "b",
+      "scene": "night",
+      "duration": 2.0,
+      "composition": "portrait",
+      "tracks": [
+        {
+          "id": "performance",
+          "events": [
+            { "at": 0, "cast": { "lead": { "viseme": "E", "mood": "认真" } } },
+            { "at": 0.7, "cast": { "lead": { "viseme": "I", "mood": "强调" } } },
+            { "at": 1.4, "cast": { "lead": { "viseme": "U" } } }
+          ]
+        },
+        {
+          "id": "subtitle",
+          "events": [
+            { "at": 0, "captionKey": "world" },
+            { "at": 1.4, "captionKey": "story" }
+          ]
+        },
+        {
+          "id": "camera",
+          "events": [
+            { "at": 0, "camera": { "zoom": 1.05, "x": -30 } },
+            { "at": 1.4, "camera": { "zoom": 1.2, "x": 20 } }
+          ]
+        }
+      ]
+    }
+  ]
+}

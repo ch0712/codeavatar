@@ -26,6 +26,16 @@ export type {
   SceneDef, SceneLayer, SceneShape, Shot, Beat, BeatCast, ShotState,
 } from './world';
 
+// StoryProgram v2（P3）：shot/composition 分离、并发事件轨、角色锁定、多画幅多语言。
+// 仍编译成普通 v0 program 交给同一个 renderWorldFrame，不新增渲染器。
+export {
+  validateStoryProgram, resolveStoryProgram, verifyCharLocks, charFingerprint,
+} from './program';
+export type {
+  StoryProgram, StoryShot, Composition, Variant, EventTrack, CharLock,
+  ProgramError, ResolveOptions, ResolvedStory,
+} from './program';
+
 // 表演驱动：perf.json → 逐帧 Pose（确定性，可复现）
 export { poseAt, moodLabels } from './perf';
 export type { Perf, PerfFrame, Caption } from './perf';

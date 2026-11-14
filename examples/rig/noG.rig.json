@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "noG",
+  "name": "演示用第三实例 · female-v2 草稿（分区未精修）",
+  "source": "examples/gen-female/female-v2.png",
+  "canvas": [1360, 2048],
+  "zones": {
+    "mouth": [548, 1058, 782, 1175],
+    "browL": [395, 650, 640, 720],
+    "browR": [725, 650, 962, 722],
+    "eyeL": [390, 738, 668, 884],
+    "eyeR": [748, 738, 968, 884]
+  },
+  "build": {
+    "eyeCarve": false
+  },
+  "notes": "用途：证明「新增一个角色」只需新增一份 .rig.json，不需要改 trace_design.PRESETS、不需要改渲染器。zones 是从 noF 复制的起始草稿，female-v2 的五官位置并未精修——编译产物只用于流程验证，不可当成品角色。真实流程是：写这份标注 → compile 出 pose-sheet.html → 带 zone 框目检 → 微调 zones（git diff 可见）→ 重编译直到量具达标。"
+}

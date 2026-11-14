@@ -109,6 +109,24 @@ export type CharTable = Record<string, CharData>;
 export type WorldRenderOptions = {
   /** 文档级 id 前缀：同页放多帧时必须给不同值 */
   idPrefix?: string;
+  /** P3 多画幅（可选）：把「同一份 program」适配到另一尺寸的画布。
+   *
+   *  刻意做成渲染选项而不是改 program.canvas：program 仍是唯一事实源，
+   *  横版/竖版/方形共用同一份场景与分镜数据，只是取景框不同。
+   *  **不传 fit 时输出逐字节等于 v0**（golden 零漂移靠这一点守住）。
+   *  contain = 全内容可见（可能留边，由 bg 铺满）；cover = 铺满（可能裁切）。
+   *
+   *  focus = 世界坐标里的取景焦点，会落在画幅中心。**竖版/方版必须给**：
+   *  2026-11-14 目检发现，居中的 cover 会把角色裁成画面左缘一条侧脸，
+   *  居中的 contain 会让 16:9 世界缩在竖版顶部、下方 70% 空白。
+   *  换画幅不是「把整张横版塞进另一个框」，而是「对准主体重新取景」。
+   *  zoom 可覆盖自动缩放（例如竖版不想把主体放得过大）。 */
+  fit?: {
+    canvas: [number, number];
+    mode?: 'contain' | 'cover';
+    focus?: [number, number];
+    zoom?: number;
+  };
 };
 
 // ─────────────────────────────── 校验 ───────────────────────────────
@@ -322,11 +340,29 @@ export const renderWorldFrame = (
   // 场景层按 role 排序（far → mid → near），同 role 内保持 JSON 中的顺序
   const rank: Record<SceneLayer['role'], number> = { far: 0, mid: 1, near: 2 };
   const layers = [...scene.layers].sort((a, b) => rank[a.role] - rank[b.role]);
+  // P3 多画幅：取景框与程序画布分离。不传 fit 时 [VW,VH] === [W,H]，
+  // 下面所有字符串与 v0 逐字节相同（verify3.mjs 用 golden 守这条）。
+  const fit = opts.fit;
+  const [VW, VH] = fit?.canvas ?? [W, H];
+  const fitS = fit
+    ? (fit.zoom ?? (fit.mode === 'cover' ? Math.max(VW / W, VH / H) : Math.min(VW / W, VH / H)))
+    : 1;
+  // 无 focus 时退化为「整幅居中」（= 旧行为，v0/v3 既有输出不受影响）；
+  // 给 focus 时把该世界坐标点平移到取景框中心，主体就不会被裁出画外。
+  const focus = fit?.focus ?? [W / 2, H / 2];
+  const fitTx = (VW - W * fitS) / 2 + (W / 2 - focus[0]) * fitS;
+  const fitTy = (VH - H * fitS) / 2 + (H / 2 - focus[1]) * fitS;
+  const fitOpen = fit
+    ? `<g transform="translate(${num(fitTx)} ${num(fitTy)}) scale(${num(fitS, 6)})">`
+    : '';
+  const fitClose = fit ? '</g>' : '';
+
   // 背景是「画面层」不是「世界层」：必须铺在 camera 变换之外。
   // 2026-11-14 目检发现：把背景色块放进 camera 组后，镜头横移会在画面边缘
   // 露出未绘制区域（暗色场景右侧一条白边）——而全部机检断言都 PASS。
   // 这与 noF 嘴部「量具 PASS 但人眼看出失败」是同一类盲区，故背景与字幕同列。
-  const bgSvg = `<rect x="0" y="0" width="${W}" height="${H}" fill="${esc(scene.bg)}"/>`;
+  // 多画幅时铺满取景框，保证任何画幅都不会露出未绘制区域（同型缺陷不复发）。
+  const bgSvg = `<rect x="0" y="0" width="${VW}" height="${VH}" fill="${esc(scene.bg)}"/>`;
   let sceneSvg = '';
   for (const layer of layers) sceneSvg += layerSvg(layer);
 
@@ -346,13 +382,14 @@ export const renderWorldFrame = (
   }
 
   // 字幕在屏幕空间，不随镜头移动（PSL：字幕是画面层，不是世界层）
+  // 多画幅时贴在取景框底部，而不是程序画布底部。
   let overlay = '';
   if (state.caption) {
     const text = esc(state.caption);
-    overlay = `<g><rect x="0" y="${num(H - 132)}" width="${W}" height="132" fill="#141117" opacity="0.82"/>`
-      + `<text x="${num(W / 2)}" y="${num(H - 58)}" font-size="40" fill="#F9F2E4" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif">${text}</text></g>`;
+    overlay = `<g><rect x="0" y="${num(VH - 132)}" width="${VW}" height="132" fill="#141117" opacity="0.82"/>`
+      + `<text x="${num(VW / 2)}" y="${num(VH - 58)}" font-size="40" fill="#F9F2E4" text-anchor="middle" font-family="system-ui,-apple-system,Segoe UI,sans-serif">${text}</text></g>`;
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="100%" height="100%" style="display:block">`
-    + `${bgSvg}<g transform="${cameraTransform}">${sceneSvg}</g>${overlay}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" width="100%" height="100%" style="display:block">`
+    + `${bgSvg}${fitOpen}<g transform="${cameraTransform}">${sceneSvg}</g>${fitClose}${overlay}</svg>`;
 };

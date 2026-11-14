@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "id": "noF",
+  "name": "女性角色 · 短发高领（女性第二实例）",
+  "source": "examples/gen-female/female-v1.png",
+  "canvas": [1360, 2048],
+  "zones": {
+    "mouth": [548, 1058, 782, 1175],
+    "browL": [395, 650, 640, 720],
+    "browR": [725, 650, 962, 722],
+    "eyeL": [390, 738, 668, 884],
+    "eyeR": [748, 738, 968, 884]
+  },
+  "build": {
+    "eyeCarve": true
+  },
+  "notes": "由 trace_design.PRESETS['noF'] 外置而来，数值一字未改。zone 判定规则是「轮廓 bbox 完整落在 zone 内」，所以每个框比五官松一圈、但不可完整包住头发轮廓。eyeCarve=true 同时启用眼区雕刻与 fullLips 嘴模型（既有管线约定）。"
+}

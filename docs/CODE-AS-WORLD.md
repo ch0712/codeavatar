@@ -448,7 +448,7 @@ renderWorldFrame(program, t, chars) -> SVG 字符串     ← 唯一纯函数
 | **P0 · 本轮已做** | `WorldProgram v0`：场景图元 + `repeat` + 锚点 + 分镜 + 镜头 + 稀疏 beats + 字幕；共用 `renderFaceSvg` | The Scene Language (W/P)、PSL (screen coords)、VAnim (SSU)、talekit (三段 JSON) | §11 的四条硬断言全 PASS；no4 golden 零漂移；人眼目检无穿帮 |
 | **P1 · 建角闭环**（最该先做） | 换角色不再靠手量 `PRESETS`：`design sheet → 可 diff 语义分区标注 JSON → compileRig 风格编译 → 六格目检 + gate + golden` | OpenMascot 标注编译、Rev2D `validate/inspect/ops`、OmniSVG 角色参考（可选后端） | 新增一个角色全程不改渲染器；标注 JSON 可 diff；目检无「白胡子/肤色缝」类结构错误 |
 | **P2 · Agent 接口** | CLI + MCP：`write_program` 返回结构校验 + 预览图 + 数字量具；`note` 机制让人在画面上指错，Agent 带图修；`diff` 看两个版本视觉后果 | talekit 写即返图 + notes.json、TopoTopo assert/explain/diff、Rev2D atomic ops | Agent 无人工看像素也能自检至少 5 类结构错误；一次「指错→修→复验」闭环可复现 |
-| **P3 · 叙事层做厚** | 按 PSL 引入 shot/composition 分离、TPN 式并发事件、角色锁定、镜头预设库、多画幅/多语言变体；再考虑插值与音频 | PSL、DyCraft、talekit shots、animdsl camera/transition | 同一 program 出横/竖/多语言帧一致；长程身份零漂移；盲评观感不劣于 v0 |
+| **P3 · 叙事层做厚**（同日已做，盲评待执行） | 按 PSL 引入 shot/composition 分离、TPN 式并发事件、角色锁定、镜头预设库、多画幅/多语言变体；再考虑插值与音频 | PSL、DyCraft、talekit shots、animdsl camera/transition | ✅ 同一 program 出横/竖/方 × 中/英帧确定且身份一致；v0 golden 零漂移；目检无穿帮（见 §11.6）。⬜ 正式盲评未执行 |
 | **贯穿** | §17 的 Q1（音素对齐 / 协同发音 / `gate_sync` / 盲评）作为**角色层内部效果线**并行推进 | §17 | §17.7 口径 |
 
 **明确不排进路线**：训自己的视频生成模型、做通用入口画布、以 star 数当效果指标、
@@ -513,6 +513,153 @@ id 引用、角色一致性四个维度上都是「合法」的。
 > 结论不是「再加一条机检」，而是：**任何程序化视觉管线都必须把「写即返图 +
 > 人能在画面上指错」做成一等公民，而不是靠开发者记得去截图**。
 > 它直接决定 P2 的形态。
+
+### 11.4 P1 建角闭环实测（同日落地）
+
+把「换角色要手量 `trace_design.PRESETS`、改 Python 源码、口头约定环境变量」
+改成一份可 diff 的语义标注程序：
+
+```text
+examples/rig/<id>.rig.json        ← 唯一事实源：5 个分区框 + 源图 + 构建开关
+        ↓ validate_rig()          ← 20 类稳定错误码，带 JSON path + code + fix
+        ↓ trace_design.py         ← 几何管线原样复用（不另写渲染器）
+        ↓ char.json + report.json ← 数字量具（层/可动件/眼/眉/lipBox）
+        ↓ pose-sheet.html         ← 写即返图：设定稿与成品叠同一组 zone 框 + 六格
+        ↓ golden.json             ← 逐字节基线；不合格产物不落基线
+```
+
+| 文件 | 作用 |
+|:--|:--|
+| `examples/rig/noF.rig.json` | 从 `PRESETS["noF"]` 外置，数值一字未改 |
+| `examples/rig/noG.rig.json` | 新增角色演示：只加一份 JSON，不改 `PRESETS`、不改渲染器 |
+| `tools/rig/schema.py` | `validate_rig()` / `_metrics()` / 20 类稳定错误码 |
+| `tools/rig/compile.py` | 编译 + 量具 + golden + 写即返图编排；清掉 `FOLK_*` 环境变量 |
+| `tools/rig/selftest.py` | 注入自证：21 用例覆盖 20 类错误码 + 一次收齐 + 量具双向 |
+| `tools/rig/preview-entry.ts` / `preview.mjs` | 严格复用 `renderFaceSvg()`，只叠 zone 框 |
+| `tools/trace_design.py` | 新增 `.rig.json` 分支；`rig.build > env > 默认值` |
+
+实测结果：
+
+```text
+[rig] 结构校验通过 · noF · 5 分区 · 1 个构建开关
+[rig] 写即返图 out/rig/noF/pose-sheet.html 1.40 MB
+[rig] char.json 36 层 / 可动部件 15 条 / 眼 2 / 眉 2 / 嘴模型 fullLips
+PASS：noF 编译完成 · 未写入 chars/
+旧路径 sha256 : ee38c6a1...472fa
+新路径 sha256 : ee38c6a1...472fa   ← 逐字节一致 ✓
+PASS：validate_rig 注入自证 · 21 用例 / 20 类错误码 / 一次收齐 ✓
+```
+
+四条关键验证：① **新旧编译路径逐字节一致**（把 `HEAD:tools/trace_design.py` 与工作区版本
+在 `plain` / `carve` 两种模式下对跑，四个 sha256 两两相等）；② 新增角色 `noG`
+全程不改 `PRESETS` 与渲染器；③ `noG` 草稿被结构量具正确拦下（0 眼 / 1 眉 / 2 可动件，
+退出码 1），**但仍产出预览图**，让错位的 zone 框一眼可见；④ 六格口型人工目检
+M/A/O/E/I/U 形状可分、无白胡子/肤色缝/白边。
+
+**注入自证抓到一个真 bug**：`canvas` 写成 `[1360]` 时校验器自己抛
+`ZeroDivisionError`（`_metrics` 用 0 画布宽高做除法），Agent 拿到的是 traceback
+而不是可自修的结构化错误。已修为 `W = W or 1` 并加注。
+另修：结构量具不合格时**不再写入 `golden.json`**，否则一次草稿编译会把烂脸
+固化成基线，之后 `--verify-golden` 反向放行（E3-053 同型）。
+
+**诚实边界**：P1 解决的是「标注可 diff、可校验、可目检、可回放」，
+**不是自动建角**。`zone_auto.py` 对 `female-v1` / `female-v2` 只配出 1 对 / 0 对
+眉眼（深色五官与侧发同色相连），分区仍需人或 Agent 在图上量。
+这一步把「量」变成可复核的工程动作，把「改」变成一行 git diff。
+
+### 11.5 P2 Agent 接口实测（同日落地）
+
+把 P1 的编译链包成**机器可消费的契约**：stdout 恒为 JSON、稳定退出码
+（0 成功 / 2 输入不合格可自修 / 3 工具链或环境错误）、每个错误带
+`{path, code, message, fix}`。CLI 与 MCP stdio server 共用同一组库函数，
+不复制实现。
+
+| 能力 | CLI | MCP tool | 返回 |
+|:--|:--|:--|:--|
+| 无像素自检 | `agent.py inspect` | `rig_inspect` | errors + 数字量具 + codes 汇总 |
+| 写即返图 | `agent.py write [--stdin]` | `rig_write` | charSha256 / 量具 / golden / pose-sheet 路径 |
+| 按错自修 | `agent.py fix` | `rig_fix` | 修复前后错误码对照 + unresolved |
+| 人在画面上指错 | `agent.py note add/list/resolve` | `rig_note` | note 带 rigSha256 + 预览图路径 |
+| 视觉后果 | `agent.py diff` | `rig_diff` | 逐字段 Δ + 两版 charSha256 + diff.html |
+
+实测（`python tools/rig/agent_check.py`，全部走真实 CLI 子进程）：
+
+```text
+[1] 注入 5 类结构错误 → inspect 自检     codes=['E002','E004','E012','E019','E020']
+[2] 按 path/code/fix 机械修复 → 复验干净 → 几何与金标准逐字段全等
+[3] note add → 没改 rig 就 resolve 被拦下 → 真改后 resolve → 0 open → 归档可回放
+[4] diff 逐字段 Δ=[0,2,0,2]，生成并排六格后果页
+[5] 仓库外 cwd 调用路径基准一致
+PASS：P2 Agent 接口闭环 ✓（连跑两次幂等）
+PASS：MCP stdio server · 握手 / 5 tools / 无像素自检闭环 / 协议流纯净 ✓
+```
+
+三条硬约束：
+
+1. **`note resolve` 要求 rig 内容确实变过**（比对 `rigSha256`）——没修就把指错
+   勾掉会被拦下；确属误报需显式 `--force`。这让「指错→修→复验」是可验证回路，
+   不是待办清单。
+2. **diff 必须诚实**：测试里把嘴区框下移 2px，两版 `char.json` 逐字节相同。
+   页面因此显式显示「改动对画面没有影响」，JSON 返回 `compiled.identical: true`，
+   不让 Agent 以为改了数字就等于修好了。
+3. **MCP stdout 是协议通道**：复用 CLI 逻辑时把 `print` 重定向到内存缓冲，
+   协议流里不允许出现任何非 JSON 行；`mcp_check.py` 逐条验证。
+
+自证过程抓到两个真 bug：① `fix` 按 `/` 切分错误路径，而校验器发的是点号路径
+`$.zones.mouth`，5 类错误只修得了 2 类；② 坏 `canvas` 让校验器自己抛
+`ZeroDivisionError`（见 §11.4）。两者都是「Agent 拿到 traceback 而不是可自修的
+结构化错误」，正是这一层要消灭的失败模式。
+
+### 11.6 P3 叙事层实测（同日落地）
+
+**关键设计：仍然只有一个渲染器。** v2 是 v0 `WorldProgram` 的可 diff 超集，
+`resolveStoryProgram(p, {variant, locale})` 把构图预设、并发事件轨、镜头切换、
+多语言字幕编译成「一份普通 v0 program + 一份 `WorldRenderOptions`」，
+再交给同一个 `renderWorldFrame(program, t, chars, opts)`。
+因此 v0 golden 是**构造上**零漂移，不靠回归测试碰运气。
+
+| 文件 | 作用 |
+|:--|:--|
+| `packages/anchor-core/src/program.ts` | `StoryProgram` v2 schema + `validateStoryProgram` + `resolveStoryProgram` + `verifyCharLocks` / `charFingerprint` |
+| `packages/anchor-core/src/world.ts` | 只新增**可选** `opts.fit`（画幅/焦点/缩放/图层可见性）；不传时输出逐字节等于 v0 |
+| `examples/world/story-v2.json` | 2 构图 / 3 画幅 / 2 语言 / 6 条并发事件轨 / 镜头切换 / 角色锁 |
+| `tools/world/verify3.mjs` | 全量验收 + 注入自证 + `v3-golden.json` + 目检页 |
+| `tools/world/program-entry.ts` | 独立 SSR 入口，与 v0 的 `world-entry.ts` 物理隔离 |
+| `demo/world3.html` | 三画幅 × 双语言对照目检页 |
+
+实测（`node tools/world/verify3.mjs`）：
+
+```text
+[1] v0 golden 12 帧逐字节等于既有 golden | drift=0
+[3] 6 组（横/竖/方 × 中/英）：编译合法 / 两次渲染逐字节一致 / viewBox 正确 /
+    背景铺满 / url(#x) 可解析 / id 前缀互不相同 / 角色 body == 直接渲染
+[4] 6 组角色资产指纹完全一致；中英文字幕确实不同
+[5] 角色锁：换 key（L002）、资产内容变动（L004）均被拦下
+[6] v2 校验器 10 类注入用例 + 多错一次收齐 + path/code/fix 齐备
+PASS：P3 叙事层 ✓
+```
+
+**§11.3 之后的第三次同型复发（必须记下来）**：首版 `fit` 只有居中的
+`contain` / `cover`。全部机检 PASS（viewBox、背景铺满、id、确定性、唯一事实源），
+但人眼看到的是：竖版 `contain` 把 16:9 世界缩在顶部一条、下方 70% 空白；
+方形 `cover` 把角色裁成画面左缘的半张脸，右侧说明文字被切成 P/S/F 半截字母。
+
+修复不是「调参数碰运气」，而是补上两个抽象：
+
+1. **`focus`（世界坐标取景焦点）**：换画幅不是「把整张横版塞进另一个框」，
+   而是「对准主体重新取景」。`cover` 不给 focus 现在会被 `P015` 拦下。
+2. **`hideLayers`（画幅级图层可见性）**：说明性文字属于构图决策，
+   不该在窄画幅里被切一半；场景数据仍只有一份，只是可见性不同。
+
+编译器自身还抓到一个真 bug：镜头切在 `at=0` 时会生成零长度空 shot，
+且 beat 的 `at` 在段起点更新前计算导致越界 —— v0 校验器直接报
+`duration 必须为正数 / beats 不能为空`。改为「镜头事件是新段起点，
+先收上一段再重置」，空段直接跳过。
+
+**诚实边界**：P3 证明了「同一份程序可确定性出多画幅多语言且身份零漂移」，
+**没有**证明多画幅自动好看（focus / hideLayers 仍需人或 Agent 按内容指定），
+也**没有**做正式盲评（§9 里 P3 的盲评口径尚未执行）。
+帧间插值、音频、并发事件的真实调度器仍未做。
 
 ---
 

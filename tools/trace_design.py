@@ -289,16 +289,44 @@ def main():
     key = sys.argv[1]
     src = sys.argv[2]
     outfile = sys.argv[3]
+    rig = None
     if key == 'auto':
         # 自动分区（2026-10-30 S2）：不依赖手量 PRESETS，换角色时 key 直接传 auto
         sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
         from zone_auto import detect_zones
         Z, _zmeta = detect_zones(src)
         print('自动分区 Z =', Z)
+    elif key.endswith('.rig.json'):
+        # P1 建角闭环（2026-11-14）：语义标注外置成可 diff 的 JSON，
+        # 新增角色不再往 PRESETS 里加一条、也不再靠环境变量口头约定开关。
+        # 这里只做「读标注」，校验由 tools/rig/schema.py 负责；几何管线原样复用。
+        with open(key, encoding='utf-8') as fh:
+            rig = json.load(fh)
+        Z = {k: tuple(v) for k, v in rig['zones'].items()}
+        # data.key 必须是角色 key，不能把 rig 文件路径写进角色资产。
+        key = rig['id']
     elif key not in PRESETS:
         raise SystemExit(f"未知角色预设 {key}，可选 {list(PRESETS) + ['auto']}")
     else:
         Z = PRESETS[key]
+
+    # 构建期开关：rig.build 优先 > 环境变量 > 既有默认值。
+    # rig 为 None 时全部表达式与原实现逐字等价，保证 no1/no4 零漂移。
+    def opt(name, env, default):
+        if rig is not None and name in rig.get('build', {}):
+            return rig['build'][name]
+        v = os.environ.get(env)
+        return v if v is not None else default
+
+    def as_bool(v):
+        if isinstance(v, bool):
+            return v
+        return str(v).strip().lower() in ('1', 'true', 'yes')
+
+    NOISE_FLATTEN = as_bool(opt('noiseFlatten', 'FOLK_NOISE_FLATTEN', '0'))
+    MERGE_TOL = int(opt('mergeTol', 'MERGE_TOL', '8'))
+    MERGE_DIST = float(opt('featureMergeTol', 'FOLK_MERGE_TOL', '26'))
+    CARVE = as_bool(opt('eyeCarve', 'FOLK_EYE_CARVE', '0'))
     os.makedirs(os.path.dirname(outfile), exist_ok=True)
     im = Image.open(src).convert("RGB")
     W, H = im.size
@@ -307,8 +335,8 @@ def main():
     # 色噪净化是**显式开关**：默认关闭，保证已验收的 NO.1/NO.4 输出逐字段不变。
     # 新生成的稿子若带低幅度色噪（S5 实测 14 槽位里 11 个被噪声吃掉），
     # 用 FOLK_NOISE_FLATTEN=1 打开；闸门会在检出噪声重复对时提示。
-    if os.environ.get("FOLK_NOISE_FLATTEN") == "1":
-        a = flatten_palette(den, K=K, tol=int(os.environ.get("MERGE_TOL", "8")))
+    if NOISE_FLATTEN:
+        a = flatten_palette(den, K=K, tol=MERGE_TOL)
     else:
         a = np.asarray(Image.fromarray(den).quantize(colors=K, method=Image.MEDIANCUT).convert("RGB"))
 
@@ -331,7 +359,7 @@ def main():
     # 默认 26 会把睫毛/虹膜桥接进头发巨块，整脸深色连成一个轮廓、五官判不出来；
     # 对这种"深色五官贴深色头发"的稿子用 12 让睫毛色分家（虹膜与睫毛距 8.7 仍同层，
     # 眼白是浅色天然分开）。
-    MERGE_DIST = float(os.environ.get("FOLK_MERGE_TOL", "26"))
+    # MERGE_DIST 由 main() 顶部的 opt() 统一求值（rig.build > env > 26）。
     merged = []
     for c in raw_colors:
         for m in merged:
@@ -358,7 +386,7 @@ def main():
     #   carve = 眼zone内 且 raw lum<40（真睫毛/虹膜；侧发暗部 raw lum≈45~50 分得开）
     # 被剥离像素换成画布上不存在的哨兵色，正常提层循环自动跳过；
     # 事后由哨兵掩膜直接生成 role=eye 层。配套约束见提层循环与 split_eye_layers。
-    CARVE = os.environ.get("FOLK_EYE_CARVE") == "1"
+    # CARVE 由 main() 顶部的 opt() 统一求值（rig.build > env > false）。
     SENTINELS = ((1, 2, 3), (2, 3, 4))
     carve_meta = []   # [(side, mask, hex)]
     if CARVE:
