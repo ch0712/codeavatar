@@ -15,6 +15,17 @@ export type { CharData, CharKey, CharLayer } from './FaceTraced';
 export { renderFaceSvg, renderFaceSvgByKey, renderFaceFrames, uniquifySvgIds } from './svg';
 export type { SvgRenderOptions } from './svg';
 
+// WorldProgram v0（2026-11-14）：角色 / 场景 / 叙事共用同一个纯函数
+// renderWorldFrame(program, t) -> SVG。刻意不引用 CHARS，角色数据由调用方注入。
+export {
+  renderWorldFrame, validateWorldProgram, shotAt, stateAt, poseOf,
+  faceBody, charIdPrefix, frameTimes, programDuration,
+} from './world';
+export type {
+  WorldProgram, WorldRenderOptions, CharTable, CharSlot,
+  SceneDef, SceneLayer, SceneShape, Shot, Beat, BeatCast, ShotState,
+} from './world';
+
 // 表演驱动：perf.json → 逐帧 Pose（确定性，可复现）
 export { poseAt, moodLabels } from './perf';
 export type { Perf, PerfFrame, Caption } from './perf';

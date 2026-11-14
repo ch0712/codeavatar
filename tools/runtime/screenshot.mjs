@@ -27,8 +27,9 @@ const arg = (name, fallback) => {
   return i >= 0 && argv[i + 1] ? argv[i + 1] : fallback;
 };
 
-const WIDTH = 1920;
-const HEIGHT = 1600;
+// 默认 1920x1600 服务于 parity 六格图；其余页面可传 --width/--height。
+const WIDTH = Number(arg('--width', 1920));
+const HEIGHT = Number(arg('--height', 1600));
 const pagePath = resolve(ROOT, arg('--url', 'out/runtime/parity-grid.html'));
 const outPath = resolve(ROOT, arg('--out', 'out/runtime/parity-ssr-grid.png'));
 const url = pagePath.includes('://') ? pagePath : pathToFileURL(pagePath).href;

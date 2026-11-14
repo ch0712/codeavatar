@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "id": "first-story",
+  "title": "用代码讲的第一个故事",
+  "canvas": [1920, 1080],
+  "fps": 30,
+  "chars": {
+    "lead": { "key": "no4", "anchor": "lead", "scale": 0.42 }
+  },
+  "scenes": {
+    "plain": {
+      "id": "plain",
+      "words": "一张空白设定稿：只有角色，没有世界",
+      "bg": "#F9F2E4",
+      "layers": [
+        {
+          "id": "grid-lines",
+          "role": "far",
+          "shapes": [
+            { "kind": "line", "x1": 780, "y1": 120, "x2": 780, "y2": 960, "stroke": "#E4D8C4", "width": 1 }
+          ],
+          "repeat": { "count": 7, "dx": 170, "dy": 0 }
+        },
+        {
+          "id": "ground",
+          "role": "far",
+          "shapes": [
+            { "kind": "line", "x1": 760, "y1": 300, "x2": 1880, "y2": 300, "stroke": "#E4D8C4", "width": 1 },
+            { "kind": "line", "x1": 760, "y1": 520, "x2": 1880, "y2": 520, "stroke": "#E4D8C4", "width": 1 },
+            { "kind": "line", "x1": 760, "y1": 740, "x2": 1880, "y2": 740, "stroke": "#E4D8C4", "width": 1 }
+          ]
+        },
+        {
+          "id": "labels",
+          "role": "near",
+          "shapes": [
+            { "kind": "text", "x": 820, "y": 250, "text": "CHARACTER  ·  JSON", "size": 30, "fill": "#8A7A66", "weight": 600 },
+            { "kind": "text", "x": 820, "y": 470, "text": "POSE  ·  15 NUMBERS", "size": 30, "fill": "#8A7A66", "weight": 600 },
+            { "kind": "text", "x": 820, "y": 690, "text": "RENDER  ·  PURE SVG", "size": 30, "fill": "#8A7A66", "weight": 600 },
+            { "kind": "rect", "x": 820, "y": 830, "w": 300, "h": 6, "fill": "#D7825D", "r": 3 }
+          ]
+        }
+      ],
+      "anchors": { "lead": [90, 70] }
+    },
+    "world": {
+      "id": "world",
+      "words": "角色之外长出了场景：重复、层次、镜头",
+      "bg": "#141117",
+      "layers": [
+        {
+          "id": "stars-high",
+          "role": "far",
+          "shapes": [
+            { "kind": "circle", "cx": 820, "cy": 150, "r": 3, "fill": "#4A4356", "opacity": 0.9 }
+          ],
+          "repeat": { "count": 9, "dx": 125, "dy": 0 }
+        },
+        {
+          "id": "stars-low",
+          "role": "far",
+          "shapes": [
+            { "kind": "circle", "cx": 860, "cy": 260, "r": 2, "fill": "#4A4356", "opacity": 0.7 }
+          ],
+          "repeat": { "count": 7, "dx": 160, "dy": 0 }
+        },
+        {
+          "id": "columns",
+          "role": "mid",
+          "shapes": [
+            { "kind": "rect", "x": 760, "y": 380, "w": 74, "h": 520, "fill": "#241F2C", "r": 6 },
+            { "kind": "rect", "x": 760, "y": 356, "w": 74, "h": 14, "fill": "#39304A", "r": 4 }
+          ],
+          "repeat": { "count": 6, "dx": 200, "dy": 0 }
+        },
+        {
+          "id": "floor",
+          "role": "mid",
+          "shapes": [
+            { "kind": "rect", "x": 0, "y": 900, "w": 1920, "h": 180, "fill": "#1D1922" },
+            { "kind": "line", "x1": 0, "y1": 900, "x2": 1920, "y2": 900, "stroke": "#3A3048", "width": 2 }
+          ]
+        },
+        {
+          "id": "labels",
+          "role": "near",
+          "shapes": [
+            { "kind": "text", "x": 820, "y": 350, "text": "SCENE  ·  PROGRAM + WORDS", "size": 28, "fill": "#6E627F", "weight": 600 },
+            { "kind": "text", "x": 820, "y": 420, "text": "SHOT  ·  TIMELINE + CAMERA", "size": 28, "fill": "#6E627F", "weight": 600 }
+          ]
+        }
+      ],
+      "anchors": { "lead": [90, 70] }
+    }
+  },
+  "shots": [
+    {
+      "id": "s1",
+      "scene": "plain",
+      "duration": 1.6,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "M", "mood": "中性" } }, "caption": "一张设定稿，只是一张图。" },
+        { "at": 0.8, "cast": { "lead": { "viseme": "A" } } }
+      ]
+    },
+    {
+      "id": "s2",
+      "scene": "plain",
+      "duration": 1.6,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "E", "mood": "认真" } }, "caption": "代码把它拆成可以改的参数。" },
+        { "at": 0.8, "cast": { "lead": { "viseme": "O" } } }
+      ]
+    },
+    {
+      "id": "s3",
+      "scene": "plain",
+      "duration": 1.6,
+      "camera": { "zoom": 1.12, "y": -20 },
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "A", "mood": "轻松" } }, "caption": "于是它会说话。" },
+        { "at": 0.8, "cast": { "lead": { "viseme": "U" } } }
+      ]
+    },
+    {
+      "id": "s4",
+      "scene": "plain",
+      "duration": 1.6,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "M", "mood": "怀疑" } }, "caption": "也会做表情。" },
+        { "at": 0.8, "cast": { "lead": { "viseme": "I", "mood": "强调" } } }
+      ]
+    },
+    {
+      "id": "s5",
+      "scene": "world",
+      "duration": 1.8,
+      "camera": { "x": -30 },
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "O", "mood": "中性" } }, "caption": "再给它一个场景。" },
+        { "at": 0.9, "cast": { "lead": { "viseme": "E" } } }
+      ]
+    },
+    {
+      "id": "s6",
+      "scene": "world",
+      "duration": 1.8,
+      "camera": { "zoom": 1.06, "x": 20 },
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "A", "mood": "轻松" } }, "caption": "最后，用程序讲一个故事。" },
+        { "at": 0.9, "cast": { "lead": { "viseme": "M" } } }
+      ]
+    }
+  ]
+}
