@@ -449,6 +449,7 @@ renderWorldFrame(program, t, chars) -> SVG 字符串     ← 唯一纯函数
 | **P1 · 建角闭环**（最该先做） | 换角色不再靠手量 `PRESETS`：`design sheet → 可 diff 语义分区标注 JSON → compileRig 风格编译 → 六格目检 + gate + golden` | OpenMascot 标注编译、Rev2D `validate/inspect/ops`、OmniSVG 角色参考（可选后端） | 新增一个角色全程不改渲染器；标注 JSON 可 diff；目检无「白胡子/肤色缝」类结构错误 |
 | **P2 · Agent 接口** | CLI + MCP：`write_program` 返回结构校验 + 预览图 + 数字量具；`note` 机制让人在画面上指错，Agent 带图修；`diff` 看两个版本视觉后果 | talekit 写即返图 + notes.json、TopoTopo assert/explain/diff、Rev2D atomic ops | Agent 无人工看像素也能自检至少 5 类结构错误；一次「指错→修→复验」闭环可复现 |
 | **P3 · 叙事层做厚**（同日已做，盲评待执行） | 按 PSL 引入 shot/composition 分离、TPN 式并发事件、角色锁定、镜头预设库、多画幅/多语言变体；再考虑插值与音频 | PSL、DyCraft、talekit shots、animdsl camera/transition | ✅ 同一 program 出横/竖/方 × 中/英帧确定且身份一致；v0 golden 零漂移；目检无穿帮（见 §11.6）。⬜ 正式盲评未执行 |
+| **P4 · 场景层做厚**（2026-11-16 已做） | 受限图元扩到 `path/polygon/ellipse/use` + `defs` 渐变 / 可复用组件；`SceneProgram` 语义参数（mood + words + 参数化组件）编译降级到 `SceneDef` | The Scene Language (W/P)、Rev2D 可 diff 资产、talekit 写即返图 | ✅ v0 / v3 golden 零漂移；7 种图元被真实场景用到；19 类结构化错误注入自证；9 组三画幅无白边；目检不再是「一张脸 + 几条线」。见 §11.7。⬜ §9 P2 的 `write_program` 仍未覆盖世界 / 叙事层 |
 | **贯穿** | §17 的 Q1（音素对齐 / 协同发音 / `gate_sync` / 盲评）作为**角色层内部效果线**并行推进 | §17 | §17.7 口径 |
 
 **明确不排进路线**：训自己的视频生成模型、做通用入口画布、以 star 数当效果指标、
@@ -661,6 +662,57 @@ PASS：P3 叙事层 ✓
 也**没有**做正式盲评（§9 里 P3 的盲评口径尚未执行）。
 帧间插值、音频、并发事件的真实调度器仍未做。
 
+### 11.7 P4 场景层做厚实测（2026-11-16）
+
+**动因**：P3 收尾时目检 `world3-final.png`，画面仍是米白底 + 一张脸 + 几条直线
++ 黑字幕条；两份示例程序合计只用 16 个形状。这正是 §12.4 自己写下的最大战略风险
+「基础设施越做越多、画面一直停在火柴人」。角色层有 50 层几何、叙事层有构图 /
+并发轨 / 角色锁 / 多画幅，**场景层是三层里最薄的一层**，而用户最初指定的
+第二步恰恰是「扩散到场景」。
+
+**做法**（仍然是编译降级，不写第二套渲染器）：
+
+```text
+examples/scenes/<id>.scene.json      ← 唯一事实源：mood + words + 参数化组件 + 锚点
+        ↓ validateSceneProgram()     ← 19 类稳定错误码 S001~S019，带 path/code/message/fix
+        ↓ resolveSceneProgram()      ← 编译成普通 SceneDef（受限图元 + defs）
+        ↓ resolveScenedWorld()      ← 故事里写 $scene 引用，装配成普通 WorldProgram
+        ↓ renderWorldFrame()        ← 唯一纯函数，一个字节都没换
+```
+
+- `world.ts` 扩展**受限**图元集合：新增 `path`（`d` 只接受指令白名单）、`polygon`、
+  `ellipse`、`use`，以及可选 `SceneDef.defs`（linear / radial 渐变、可复用组件）。
+  仍不是自由 SVG 注入；旧四种图元的渲染分支一行未改，`refOf()` 对纯色直通，
+  不传 defs 时 `svgDefs === ''` → **输出与 v0 逐字节相同**。
+- `scene.ts` 定义 6 类参数化组件 `sky / horizon / ground / buildings / trees / light`，
+  语义词 `mood`（dawn / day / dusk / night）决定整套调色板，`palette` 可按键覆盖；
+  重复布局全部走 `seed + LCG`，**不碰 `Math.random`**；绘制层次由编译器按
+  `DRAW_ORDER` 稳定排序，不依赖人在 JSON 里书写的先后。
+- 三份场景 `dawn-city / night-city / day-park` 只靠 mood / 组件集合 / 数字参数区分，
+  故事 `story-with-scenes.json` 用 `$scene` 引用装配，不抄三遍坐标。
+
+**实测**（`node tools/world/verify4.mjs`）：
+
+```text
+PASS v0 12 帧 golden 零漂移 / v3 6 组 × 6 帧 golden 零漂移
+PASS 7 种图元被真实场景用到 · gradients=12 · symbols=4 · repeat 层=3
+PASS 同 seed 逐字节一致 / 换 seed·mood·组件集合·count 都确实改变画面
+PASS 12 帧确定性 / 角色片段 == 直接 renderFaceSvg / url(#x) 与 href 全可解析
+PASS 9 组三画幅 viewBox 正确、背景铺满、cover 均带 focus
+PASS 19 类 SceneProgram 注入错误 + 9 类 world 新图元错误 + 坏输入不抛异常
+```
+
+**目检**（`demo/world4.html`、`out/world/world4-final-full.png` +
+`world4-b-cards.png`）：渐变天空、太阳 / 月亮光晕、双层远山、带窗灯的建筑群、
+树与光束都在；横 / 竖 / 方 × 三套配色无白边、无半截元素、无渐变串帧；
+角色合成完整、无遮挡。目检页自身先暴露了一处 grid 三列等高把矮卡拉出
+**假空白**的问题，修 `align-items:start` 后复看通过 —— **目检工具本身也会制造假象**。
+
+**诚实边界**：证明了「语义参数能确定性驱动丰富场景且不破坏任何既有基线」，
+仍**没有**证明画面好看、Agent 能稳定写对 SceneProgram（§9 P2 的 `write_program`
+尚未覆盖世界 / 叙事层）、也没做正式盲评。竖版画幅底部仍有约 1/4 深色地面，
+属取景构图而非渲染缺陷。
+
 ---
 
 ## 12. 诚实边界与风险
@@ -671,8 +723,10 @@ PASS：P3 叙事层 ✓
   三层共用一个渲染器；每帧可独立做 golden；这套抽象能被结构化校验。
 - **没证明**：画面好看、能讲复杂故事、能商用、Agent 能稳定写对 program。
   `animdsl` 的三次重写和 `talekit` 0★ 都在提醒：**「跑通」离「好看」还很远**。
-- 场景层目前是**受限图元**（rect/circle/line/text + repeat），表达力有限；
-  这不是退化，是刻意先保证可 diff、可校验、Agent 不易写坏。放开自由 SVG 是后面的决策。
+- 场景层是**受限但可扩展**的图元集合（v0 的 rect/circle/line/text + repeat，
+  P4 增加 path/polygon/ellipse/use 与 `defs` 渐变 / 可复用组件），仍**不是自由 SVG**。
+  P4 证明了语义参数能确定性驱动丰富画面，但表达力与「随手画什么都行」仍有距离，
+  这是刻意保留可 diff、可校验、Agent 不易写坏的代价；放开自由注入仍是后面的决策。
 
 ### 12.2 外部数据口径
 

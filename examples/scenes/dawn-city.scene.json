@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "id": "dawn-city",
+  "words": "黎明城市：远山轮廓、渐次亮起的窗、行道树与低角度晨光",
+  "mood": "dawn",
+  "canvas": [1920, 1080],
+  "components": [
+    { "kind": "sky", "sun": { "x": 1420, "y": 250, "r": 70 } },
+    { "kind": "horizon", "y": 560, "peaks": 8, "amplitude": 110 },
+    { "kind": "ground", "y": 820 },
+    { "kind": "buildings", "y": 820, "count": 9, "minW": 130, "maxW": 210, "minH": 190, "maxH": 420, "windows": true, "seed": 7 },
+    { "kind": "trees", "y": 890, "count": 7, "minH": 110, "maxH": 170, "seed": 19 },
+    { "kind": "light", "x": 1420, "y": 330, "rx": 420, "ry": 300, "beams": 4 }
+  ],
+  "anchors": { "lead": [90, 70] }
+}

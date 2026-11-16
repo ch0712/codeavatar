@@ -29,12 +29,39 @@ import type { CharData } from './FaceTraced';
 // ─────────────────────────────── 程序 schema ───────────────────────────────
 
 /** 场景图元：刻意是**受限集合**而不是自由 SVG 字符串。
- *  自由 SVG 会让场景重新变成不可 diff、不可校验、Agent 容易写坏的黑盒。 */
+ *  自由 SVG 会让场景重新变成不可 diff、不可校验、Agent 容易写坏的黑盒。
+ *
+ *  P4 扩展（2026-11-16）：新增 path / polygon / ellipse / use 四种，仍然不是自由注入——
+ *  `d` 只接受路径指令白名单，所有属性经 esc() 转义，`use` 只能引用本场景 defs.symbols。
+ *  v0 的四种图元分支一行未改，不传新字段时输出逐字节不变（golden 零漂移靠这点守住）。 */
 export type SceneShape =
   | { kind: 'rect'; x: number; y: number; w: number; h: number; fill: string; r?: number; opacity?: number }
   | { kind: 'circle'; cx: number; cy: number; r: number; fill: string; opacity?: number }
   | { kind: 'line'; x1: number; y1: number; x2: number; y2: number; stroke: string; width?: number; opacity?: number }
-  | { kind: 'text'; x: number; y: number; text: string; size?: number; fill?: string; anchor?: 'start' | 'middle' | 'end'; weight?: number };
+  | { kind: 'text'; x: number; y: number; text: string; size?: number; fill?: string; anchor?: 'start' | 'middle' | 'end'; weight?: number }
+  /** 受限路径：d 只允许 M/L/H/V/C/S/Q/T/A/Z 指令与数字，不能注入标签 */
+  | { kind: 'path'; d: string; fill?: string; stroke?: string; width?: number; opacity?: number; rule?: 'nonzero' | 'evenodd' }
+  | { kind: 'polygon'; points: [number, number][]; fill?: string; stroke?: string; width?: number; opacity?: number }
+  | { kind: 'ellipse'; cx: number; cy: number; rx: number; ry: number; fill: string; opacity?: number }
+  /** 复用 defs.symbols 里的组件：循环与层次用一份数据表达，而不是 n 份坐标 */
+  | { kind: 'use'; symbol: string; x: number; y: number; scale?: number; opacity?: number };
+
+/** 渐变定义：坐标用 objectBoundingBox 比例（0..1），不是世界坐标。 */
+export type SceneGradient = {
+  id: string;
+  kind: 'linear' | 'radial';
+  /** linear 用 from/to；radial 用 center/radius */
+  from?: [number, number];
+  to?: [number, number];
+  center?: [number, number];
+  radius?: number;
+  stops: { offset: number; color: string; opacity?: number }[];
+};
+
+/** 可复用组件：内部仍是同一套受限图元，禁止嵌套 use（防止循环引用）。 */
+export type SceneSymbol = { id: string; shapes: SceneShape[] };
+
+export type SceneDefs = { gradients?: SceneGradient[]; symbols?: SceneSymbol[] };
 
 export type SceneLayer = {
   id: string;
@@ -54,6 +81,8 @@ export type SceneDef = {
   layers: SceneLayer[];
   /** 命名锚点：角色/道具按名字落位，而不是写死坐标 */
   anchors: Record<string, [number, number]>;
+  /** P4 可选：渐变与可复用组件。不传时 defsSvg === ''，输出与 v0 逐字节相同。 */
+  defs?: SceneDefs;
 };
 
 export type CharSlot = {
@@ -156,6 +185,7 @@ export const validateWorldProgram = (p: WorldProgram): { ok: boolean; errors: st
   }
 
   for (const [sid, scene] of Object.entries(p.scenes ?? {})) {
+    const defIds = checkDefs(scene, sid, e);
     if (scene.id !== sid) e.push(`$.scenes.${sid}.id 与键名不一致`);
     if (!scene.anchors || !Object.keys(scene.anchors).length) e.push(`$.scenes.${sid}.anchors 不能为空`);
     for (const [aid, xy] of Object.entries(scene.anchors ?? {})) {
@@ -166,7 +196,7 @@ export const validateWorldProgram = (p: WorldProgram): { ok: boolean; errors: st
       if (layer.repeat && (!isNum(layer.repeat.count) || layer.repeat.count < 1 || layer.repeat.count > 200)) {
         e.push(`$.scenes.${sid}.layers.${layer.id}.repeat.count 必须在 1..200`);
       }
-      for (const s of layer.shapes ?? []) checkShape(s, `$.scenes.${sid}.layers.${layer.id}`, e);
+      for (const s of layer.shapes ?? []) checkShape(s, `$.scenes.${sid}.layers.${layer.id}`, e, defIds, true);
     }
   }
 
@@ -208,14 +238,100 @@ export const validateWorldProgram = (p: WorldProgram): { ok: boolean; errors: st
   return { ok: e.length === 0, errors: e };
 };
 
-const checkShape = (s: SceneShape, at: string, e: string[]): void => {
-  const nums: Record<string, unknown> = s as unknown as Record<string, unknown>;
-  for (const k of ['x', 'y', 'w', 'h', 'cx', 'cy', 'r', 'x1', 'y1', 'x2', 'y2', 'size', 'width', 'opacity', 'weight']) {
-    if (k in nums && nums[k] !== undefined && !isNum(nums[k])) e.push(`${at}.shape.${s.kind}.${k} 必须为数字`);
+const SHAPE_KINDS = ['rect', 'circle', 'line', 'text', 'path', 'polygon', 'ellipse', 'use'];
+/** d 只允许 SVG 路径指令 + 数字；属性仍经 esc() 转义，无法注入标签。 */
+const PATH_RE = /^[MLHVCSQTAZmlhvcsqtaz0-9eE+\-.,\s]+$/;
+const REF_RE = /^url\(#([^)]*)\)$/;
+const isPair = (v: unknown): v is [number, number] =>
+  Array.isArray(v) && v.length === 2 && v.every((x) => isNum(x));
+
+const checkRef = (v: string, at: string, key: string, ids: Set<string>, e: string[]): void => {
+  const m = REF_RE.exec(v);
+  if (m && !ids.has(m[1])) e.push(`${at}.${key} 引用了不存在的 def：${m[1]}`);
+};
+
+/** 校验 defs 并收集全部可引用 id。分两遍：先收 id 再校验，避免定义顺序影响结果。 */
+const checkDefs = (scene: SceneDef, sid: string, e: string[]): Set<string> => {
+  const ids = new Set<string>();
+  const at = `$.scenes.${sid}.defs`;
+  const gradients = scene.defs?.gradients ?? [];
+  const symbols = scene.defs?.symbols ?? [];
+  for (const g of gradients) if (g?.id) ids.add(g.id);
+  for (const s of symbols) if (s?.id) ids.add(s.id);
+  const seen = new Set<string>();
+  for (const g of gradients) if (g?.id) {
+    if (seen.has(g.id)) e.push(`${at}.gradients.id 重复：${g.id}`);
+    seen.add(g.id);
   }
-  if (s.kind === 'text' && typeof s.text !== 'string') e.push(`${at}.shape.text.text 必须为字符串`);
-  if (s.kind === 'rect' && isNum(s.w) && s.w <= 0) e.push(`${at}.shape.rect.w 必须为正数`);
-  if ((s.kind === 'circle') && isNum(s.r) && s.r <= 0) e.push(`${at}.shape.circle.r 必须为正数`);
+  for (const s of symbols) if (s?.id) {
+    if (seen.has(s.id)) e.push(`${at}.symbols.id 重复：${s.id}`);
+    seen.add(s.id);
+  }
+  gradients.forEach((g, gi) => {
+    const p = `${at}.gradients[${gi}]`;
+    if (!g || typeof g.id !== 'string' || !g.id) { e.push(`${p}.id 缺失`); return; }
+    if (g.kind !== 'linear' && g.kind !== 'radial') e.push(`${p}.kind 必须为 linear 或 radial`);
+    if (!Array.isArray(g.stops) || g.stops.length < 2) e.push(`${p}.stops 至少需要 2 个色标`);
+    (g.stops ?? []).forEach((s, i) => {
+      if (!isNum(s?.offset) || s.offset < 0 || s.offset > 1) e.push(`${p}.stops[${i}].offset 必须在 0..1`);
+      if (typeof s?.color !== 'string' || !s.color) e.push(`${p}.stops[${i}].color 缺失`);
+      if (s?.opacity !== undefined && !isNum(s.opacity)) e.push(`${p}.stops[${i}].opacity 必须为数字`);
+    });
+    if (g.kind === 'linear') {
+      if (!isPair(g.from) || !isPair(g.to)) e.push(`${p} linear 渐变需要 from / to 两个 [0..1, 0..1] 坐标`);
+    } else if (g.kind === 'radial') {
+      if (!isPair(g.center)) e.push(`${p}.center 必须为 [数字, 数字]`);
+      if (!isNum(g.radius) || g.radius <= 0) e.push(`${p}.radius 必须为正数`);
+    }
+  });
+  symbols.forEach((sym, si) => {
+    const p = `${at}.symbols[${si}]`;
+    if (!sym || typeof sym.id !== 'string' || !sym.id) { e.push(`${p}.id 缺失`); return; }
+    if (!Array.isArray(sym.shapes) || !sym.shapes.length) e.push(`${p}.shapes 不能为空`);
+    for (const s of sym.shapes ?? []) checkShape(s, p, e, ids, false);
+  });
+  return ids;
+};
+
+const checkShape = (
+  s: SceneShape, at: string, e: string[], defIds = new Set<string>(), allowUse = true,
+): void => {
+  const n = s as unknown as Record<string, unknown> | null;
+  if (!n || typeof n !== 'object') { e.push(`${at}.shape 必须是对象`); return; }
+  const kind = n.kind;
+  if (typeof kind !== 'string' || !SHAPE_KINDS.includes(kind)) {
+    e.push(`${at}.shape.kind 非法：${String(kind)}`);
+    return;
+  }
+  const tag = `${at}.shape.${kind}`;
+  for (const k of ['x', 'y', 'w', 'h', 'cx', 'cy', 'r', 'rx', 'ry', 'x1', 'y1', 'x2', 'y2', 'size', 'width', 'opacity', 'weight', 'scale']) {
+    if (k in n && n[k] !== undefined && !isNum(n[k])) e.push(`${tag}.${k} 必须为数字`);
+  }
+  for (const k of ['fill', 'stroke']) {
+    if (typeof n[k] === 'string') checkRef(n[k] as string, tag, k, defIds, e);
+  }
+  if (kind === 'text' && typeof n.text !== 'string') e.push(`${tag}.text 必须为字符串`);
+  if (kind === 'rect' && isNum(n.w) && (n.w as number) <= 0) e.push(`${tag}.w 必须为正数`);
+  if (kind === 'circle' && isNum(n.r) && (n.r as number) <= 0) e.push(`${tag}.r 必须为正数`);
+  if (kind === 'ellipse') {
+    if (!isNum(n.rx) || (n.rx as number) <= 0) e.push(`${tag}.rx 必须为正数`);
+    if (!isNum(n.ry) || (n.ry as number) <= 0) e.push(`${tag}.ry 必须为正数`);
+  }
+  if (kind === 'path' && (typeof n.d !== 'string' || !PATH_RE.test(n.d as string))) {
+    e.push(`${tag}.d 只允许路径指令 M/L/H/V/C/S/Q/T/A/Z 与数字`);
+  }
+  if (kind === 'polygon') {
+    if (!Array.isArray(n.points) || (n.points as unknown[]).length < 3) e.push(`${tag}.points 至少 3 个点`);
+    else (n.points as unknown[]).forEach((pt, i) => {
+      if (!isPair(pt)) e.push(`${tag}.points[${i}] 必须为 [数字, 数字]`);
+    });
+  }
+  if (kind === 'use') {
+    if (!allowUse) e.push(`${tag} 不允许在 defs.symbols 内嵌套 use（防止循环引用）`);
+    else if (typeof n.symbol !== 'string' || !defIds.has(n.symbol as string)) {
+      e.push(`${tag}.symbol 引用了不存在的 def：${String(n.symbol)}`);
+    }
+  }
 };
 
 // ─────────────────────────── 时间线求值（纯函数） ───────────────────────────
@@ -266,6 +382,11 @@ export const poseOf = (st: BeatCast): Pose => ({
 export const charIdPrefix = (opts: WorldRenderOptions, shotIndex: number, castKey: string): string =>
   `${opts.idPrefix ?? 'w'}-s${shotIndex}-${castKey}`;
 
+/** 场景 defs 的 id 前缀：同页放多帧时，gradient / 可复用组件不能串帧。
+ *  与角色前缀同源但分段，避免 `url(#x)` 撞到 FaceTraced 的 useId。 */
+export const sceneIdPrefix = (opts: WorldRenderOptions): string =>
+  `${opts.idPrefix ?? 'w'}-sc-`;
+
 /** demo 采样点：每个 beat 的绝对时间（换帧即换状态，浏览器只负责显示）。 */
 export const frameTimes = (p: WorldProgram): { t: number; shotId: string; beatAt: number }[] => {
   let acc = 0;
@@ -285,27 +406,65 @@ const esc = (v: unknown): string => String(v)
 
 const num = (v: number, d = 2): string => String(Math.round(v * 10 ** d) / 10 ** d);
 
-const shapeSvg = (s: SceneShape, dx: number, dy: number): string => {
+/** 把 `url(#sky)` 改写成带文档级前缀的 `url(#f3-sc-sky)`。
+ *  纯色 / none 不匹配 REF_RE 时原样返回——v0 图元的 fill 因此逐字节不变。 */
+const refOf = (v: string | undefined, prefix: string): string =>
+  (v ?? '').replace(REF_RE, (_m, id: string) => `url(#${prefix}${id})`);
+
+const shapeSvg = (s: SceneShape, dx: number, dy: number, prefix: string): string => {
   const op = (v?: number) => (v === undefined ? '' : ` opacity="${num(v, 3)}"`);
+  const f = (v?: string, fallback = 'none') => esc(v ? refOf(v, prefix) : fallback);
   switch (s.kind) {
     case 'rect':
-      return `<rect x="${num(s.x + dx)}" y="${num(s.y + dy)}" width="${num(s.w)}" height="${num(s.h)}" rx="${num(s.r ?? 0)}" fill="${esc(s.fill)}"${op(s.opacity)}/>`;
+      return `<rect x="${num(s.x + dx)}" y="${num(s.y + dy)}" width="${num(s.w)}" height="${num(s.h)}" rx="${num(s.r ?? 0)}" fill="${esc(refOf(s.fill, prefix))}"${op(s.opacity)}/>`;
     case 'circle':
-      return `<circle cx="${num(s.cx + dx)}" cy="${num(s.cy + dy)}" r="${num(s.r)}" fill="${esc(s.fill)}"${op(s.opacity)}/>`;
+      return `<circle cx="${num(s.cx + dx)}" cy="${num(s.cy + dy)}" r="${num(s.r)}" fill="${esc(refOf(s.fill, prefix))}"${op(s.opacity)}/>`;
     case 'line':
-      return `<line x1="${num(s.x1 + dx)}" y1="${num(s.y1 + dy)}" x2="${num(s.x2 + dx)}" y2="${num(s.y2 + dy)}" stroke="${esc(s.stroke)}" stroke-width="${num(s.width ?? 1)}"${op(s.opacity)}/>`;
+      return `<line x1="${num(s.x1 + dx)}" y1="${num(s.y1 + dy)}" x2="${num(s.x2 + dx)}" y2="${num(s.y2 + dy)}" stroke="${esc(refOf(s.stroke, prefix))}" stroke-width="${num(s.width ?? 1)}"${op(s.opacity)}/>`;
     case 'text':
       return `<text x="${num(s.x + dx)}" y="${num(s.y + dy)}" font-size="${num(s.size ?? 32)}" fill="${esc(s.fill ?? '#1D1922')}" text-anchor="${esc(s.anchor ?? 'start')}" font-weight="${num(s.weight ?? 400, 0)}" font-family="system-ui,-apple-system,Segoe UI,sans-serif">${esc(s.text)}</text>`;
+    case 'ellipse':
+      return `<ellipse cx="${num(s.cx + dx)}" cy="${num(s.cy + dy)}" rx="${num(s.rx)}" ry="${num(s.ry)}" fill="${f(s.fill)}"${op(s.opacity)}/>`;
+    case 'polygon':
+      return `<polygon points="${s.points.map(([x, y]) => `${num(x + dx)},${num(y + dy)}`).join(' ')}" fill="${f(s.fill)}" stroke="${f(s.stroke)}" stroke-width="${num(s.width ?? 1)}"${op(s.opacity)}/>`;
+    case 'path': {
+      const inner = `<path d="${esc(s.d)}" fill="${f(s.fill)}" stroke="${f(s.stroke)}" stroke-width="${num(s.width ?? 1)}"${s.rule ? ` fill-rule="${esc(s.rule)}"` : ''}${op(s.opacity)}/>`;
+      // d 里是绝对坐标，repeat 平移用外层 g；dx=dy=0 时不包，保持输出最简。
+      return dx || dy ? `<g transform="translate(${num(dx)} ${num(dy)})">${inner}</g>` : inner;
+    }
+    case 'use': {
+      const X = num(s.x + dx), Y = num(s.y + dy);
+      const href = `#${esc(prefix + s.symbol)}`;
+      if (s.scale !== undefined && s.scale !== 1) {
+        return `<g transform="translate(${X} ${Y}) scale(${num(s.scale, 4)})"${op(s.opacity)}><use href="${href}"/></g>`;
+      }
+      return `<use href="${href}" x="${X}" y="${Y}"${op(s.opacity)}/>`;
+    }
   }
 };
 
-const layerSvg = (layer: SceneLayer): string => {
+/** defs 用 `<g id>` 而不是 `<symbol>`：后者不带 viewBox 时在不同宿主里裁剪行为不一致，
+ *  而 `<use>` 引用 `<g>` 是 SVG 1.1 就稳定的语义，SSR 字符串与浏览器渲染一致。 */
+const defsSvg = (scene: SceneDef, prefix: string): string => {
+  const gradients = (scene.defs?.gradients ?? []).map((g) => {
+    const stops = g.stops.map((s) =>
+      `<stop offset="${num(s.offset, 3)}" stop-color="${esc(s.color)}"${s.opacity !== undefined ? ` stop-opacity="${num(s.opacity, 3)}"` : ''}/>`).join('');
+    return g.kind === 'radial'
+      ? `<radialGradient id="${esc(prefix + g.id)}" cx="${num(g.center?.[0] ?? 0.5, 3)}" cy="${num(g.center?.[1] ?? 0.5, 3)}" r="${num(g.radius ?? 0.5, 3)}">${stops}</radialGradient>`
+      : `<linearGradient id="${esc(prefix + g.id)}" x1="${num(g.from?.[0] ?? 0, 3)}" y1="${num(g.from?.[1] ?? 0, 3)}" x2="${num(g.to?.[0] ?? 0, 3)}" y2="${num(g.to?.[1] ?? 1, 3)}">${stops}</linearGradient>`;
+  }).join('');
+  const symbols = (scene.defs?.symbols ?? []).map((sym) =>
+    `<g id="${esc(prefix + sym.id)}">${sym.shapes.map((s) => shapeSvg(s, 0, 0, prefix)).join('')}</g>`).join('');
+  return gradients || symbols ? `<defs>${gradients}${symbols}</defs>` : '';
+};
+
+const layerSvg = (layer: SceneLayer, prefix: string): string => {
   const n = layer.repeat?.count ?? 1;
   const dx = layer.repeat?.dx ?? 0;
   const dy = layer.repeat?.dy ?? 0;
   let out = '';
   for (let i = 0; i < n; i++) {
-    for (const s of layer.shapes) out += shapeSvg(s, dx * i, dy * i);
+    for (const s of layer.shapes) out += shapeSvg(s, dx * i, dy * i, prefix);
   }
   return out;
 };
@@ -363,8 +522,12 @@ export const renderWorldFrame = (
   // 这与 noF 嘴部「量具 PASS 但人眼看出失败」是同一类盲区，故背景与字幕同列。
   // 多画幅时铺满取景框，保证任何画幅都不会露出未绘制区域（同型缺陷不复发）。
   const bgSvg = `<rect x="0" y="0" width="${VW}" height="${VH}" fill="${esc(scene.bg)}"/>`;
+  // P4：defs 放在画面层（与 bg 同列、camera/fit 变换之外）。
+  // 不传 scene.defs 时 svgDefs === ''，整个返回串与 v0 逐字节相同。
+  const scPrefix = sceneIdPrefix(opts);
+  const svgDefs = defsSvg(scene, scPrefix);
   let sceneSvg = '';
-  for (const layer of layers) sceneSvg += layerSvg(layer);
+  for (const layer of layers) sceneSvg += layerSvg(layer, scPrefix);
 
   // 角色：稀疏状态更新 → 完整 Pose → 唯一渲染器 renderFaceSvg
   for (const [castKey, slot] of Object.entries(p.chars)) {
@@ -391,5 +554,5 @@ export const renderWorldFrame = (
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${VW} ${VH}" width="100%" height="100%" style="display:block">`
-    + `${bgSvg}${fitOpen}<g transform="${cameraTransform}">${sceneSvg}</g>${fitClose}${overlay}</svg>`;
+    + `${bgSvg}${svgDefs}${fitOpen}<g transform="${cameraTransform}">${sceneSvg}</g>${fitClose}${overlay}</svg>`;
 };

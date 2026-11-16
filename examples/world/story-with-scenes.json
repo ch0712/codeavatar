@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "id": "city-three-moments",
+  "title": "一座城市的三个时刻",
+  "canvas": [1920, 1080],
+  "fps": 30,
+  "chars": { "lead": { "key": "no4", "anchor": "lead", "scale": 0.42 } },
+  "scenes": {
+    "dawn-city": { "$scene": "examples/scenes/dawn-city.scene.json" },
+    "day-park": { "$scene": "examples/scenes/day-park.scene.json" },
+    "night-city": { "$scene": "examples/scenes/night-city.scene.json" }
+  },
+  "shots": [
+    {
+      "id": "s1", "scene": "dawn-city", "duration": 2.0,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "hidden": true } }, "caption": "同一份程序，换一个语义词，就是另一座清晨。" },
+        { "at": 1.0, "caption": "天光、远山、楼群，都是参数。" }
+      ]
+    },
+    {
+      "id": "s2", "scene": "dawn-city", "duration": 2.0,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "M", "mood": "中性" } }, "caption": "他站在街口，等第一班车。" },
+        { "at": 1.0, "cast": { "lead": { "viseme": "A" } } }
+      ]
+    },
+    {
+      "id": "s3", "scene": "day-park", "duration": 2.0,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "hidden": true } }, "caption": "把建筑从程序里拿掉，城市就成了草地。" },
+        { "at": 1.0, "caption": "树的数量、太阳的位置，各改一个数字。" }
+      ]
+    },
+    {
+      "id": "s4", "scene": "day-park", "duration": 2.0,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "E", "mood": "轻松" } }, "caption": "同一个角色，站在完全不同的世界里。" },
+        { "at": 1.0, "cast": { "lead": { "viseme": "O" } } }
+      ]
+    },
+    {
+      "id": "s5", "scene": "night-city", "duration": 2.0,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "viseme": "A", "mood": "认真" } }, "caption": "再换一套调色板，天就黑了。" },
+        { "at": 1.0, "cast": { "lead": { "viseme": "U" } } }
+      ]
+    },
+    {
+      "id": "s6", "scene": "night-city", "duration": 2.0,
+      "beats": [
+        { "at": 0, "cast": { "lead": { "hidden": true } }, "caption": "画面始终是一份可 diff、可回放的程序。" },
+        { "at": 1.0, "caption": "不是视频。" }
+      ]
+    }
+  ]
+}

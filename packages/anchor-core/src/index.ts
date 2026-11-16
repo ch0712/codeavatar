@@ -19,12 +19,23 @@ export type { SvgRenderOptions } from './svg';
 // renderWorldFrame(program, t) -> SVG。刻意不引用 CHARS，角色数据由调用方注入。
 export {
   renderWorldFrame, validateWorldProgram, shotAt, stateAt, poseOf,
-  faceBody, charIdPrefix, frameTimes, programDuration,
+  faceBody, charIdPrefix, sceneIdPrefix, frameTimes, programDuration,
 } from './world';
 export type {
   WorldProgram, WorldRenderOptions, CharTable, CharSlot,
-  SceneDef, SceneLayer, SceneShape, Shot, Beat, BeatCast, ShotState,
+  SceneDef, SceneLayer, SceneShape, SceneDefs, SceneGradient, SceneSymbol,
+  Shot, Beat, BeatCast, ShotState,
 } from './world';
+
+// SceneProgram v1（P4，2026-11-16）：语义参数 + 调色板 + 参数化组件 → 普通 SceneDef。
+// 与 world/program 一样刻意不引用 CHARS，构建侧注入角色表。
+export {
+  SCENE_PALETTES, validateSceneProgram, resolveSceneProgram, resolveScenedWorld,
+} from './scene';
+export type {
+  SceneProgram, ScenedWorldProgram, SceneComponent, SceneMood, ScenePalette,
+  SceneError, SceneMetrics, SceneValidation,
+} from './scene';
 
 // StoryProgram v2（P3）：shot/composition 分离、并发事件轨、角色锁定、多画幅多语言。
 // 仍编译成普通 v0 program 交给同一个 renderWorldFrame，不新增渲染器。

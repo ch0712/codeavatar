@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "night-city",
+  "words": "同一座城市的深夜：更密的楼群、窗灯、冷色月光与雾",
+  "mood": "night",
+  "canvas": [1920, 1080],
+  "components": [
+    { "kind": "sky", "sun": { "x": 1480, "y": 210, "r": 52 } },
+    { "kind": "horizon", "y": 580, "peaks": 9, "amplitude": 80 },
+    { "kind": "ground", "y": 820 },
+    { "kind": "buildings", "y": 820, "count": 11, "minW": 110, "maxW": 190, "minH": 230, "maxH": 470, "windows": true, "seed": 31 },
+    { "kind": "light", "x": 1480, "y": 280, "rx": 360, "ry": 260, "beams": 3 }
+  ],
+  "anchors": { "lead": [90, 70] }
+}

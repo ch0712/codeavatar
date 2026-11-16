@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "id": "day-park",
+  "words": "白天开阔草地与树林：没有建筑，只有远山、成排的树和斜射日光",
+  "mood": "day",
+  "canvas": [1920, 1080],
+  "components": [
+    { "kind": "sky", "sun": { "x": 1350, "y": 190, "r": 64 } },
+    { "kind": "horizon", "y": 600, "peaks": 6, "amplitude": 70 },
+    { "kind": "ground", "y": 760 },
+    { "kind": "trees", "y": 880, "count": 10, "minH": 100, "maxH": 190, "seed": 43 },
+    { "kind": "light", "x": 1350, "y": 260, "rx": 380, "ry": 280, "beams": 5 }
+  ],
+  "anchors": { "lead": [90, 70] }
+}
