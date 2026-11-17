@@ -15,6 +15,10 @@ export type { CharData, CharKey, CharLayer } from './FaceTraced';
 export { renderFaceSvg, renderFaceSvgByKey, renderFaceFrames, uniquifySvgIds } from './svg';
 export type { SvgRenderOptions } from './svg';
 
+// Q3 角色外观质感（2026-11-17）：参数化光照 / 暗角 / 高光 / 轮廓，显式开关零漂移
+export { APPEARANCE_PRESETS, appearancePreset, validateAppearance, resolveAppearance } from './appearance';
+export type { AppearanceSpec, AppearanceError, AppearanceValidation } from './appearance';
+
 // WorldProgram v0（2026-11-14）：角色 / 场景 / 叙事共用同一个纯函数
 // renderWorldFrame(program, t) -> SVG。刻意不引用 CHARS，角色数据由调用方注入。
 export {

@@ -3,6 +3,7 @@ import React from 'react';
 import { Pose } from './types';
 import { CHARACTER_DATA, CharacterKey } from './chars';
 import { parallaxFor, orderByDepth, DEPTH_GAIN } from './depth';
+import type { AppearanceSpec } from './appearance';
 
 /**
  * 由设定稿「描」出来的主播脸 —— 几何来自设计稿本身（tools/trace_design.py）。
@@ -76,11 +77,15 @@ export const FaceTraced: React.FC<{
   /** 2.5D 深度分层原型开关（阶段 4 A/B）：给出时按层深度做视差位移 + 遮挡排序。
    * 缺省 undefined = 旧平面路径，逐字节零漂移。 */
   depth?: { gain?: number };
+  /** Q3 外观质感（2026-11-17）：缺省 undefined = 不生成任何材质节点，
+   *  JSX 结构与旧版完全一致，15 帧 golden / parity / world 基线逐字节零漂移。 */
+  appearance?: AppearanceSpec;
 }> = ({
   pose,
   data,
   transparentBg,
   depth,
+  appearance,
 }) => {
   const p = pose;
   const [W, H] = data.canvas;
@@ -270,6 +275,33 @@ export const FaceTraced: React.FC<{
   // 第一格的裁剪框（实测 O/E/I/U 开口空隙全部消失）。useId 去掉冒号保 url(#) 可解析。
   const uid = React.useId().replace(/:/g, '');
 
+  // ── Q3 外观质感（可选，2026-11-17）──────────────────────────────────
+  // 只用 gradient + clipPath + path，不引入 fe* 滤镜：后者跨宿主光栅化口径不一，
+  // 会让同管线 parity 出现 ±1~2 通道的假红（E3-061）。
+  const AP = appearance;
+  // 光照几何一律复用上方的 faceW/faceH（skinBox 尺度），不按整张画布 W/H：
+  // 旧版渐变两端落在画外，脸内只吃到中段近乎透明的 0.46 stop，目检「等于没打光」。
+  const apFace = AP ? {
+    cx: (data.skinBox[0] + data.skinBox[2]) / 2,
+    cy: (data.skinBox[1] + data.skinBox[3]) / 2,
+  } : null;
+  const apLight = AP && apFace ? {
+    x1: apFace.cx + AP.light.x * faceW * 0.62,
+    y1: apFace.cy + AP.light.y * faceH * 0.62,
+    x2: apFace.cx - AP.light.x * faceW * 0.62,
+    y2: apFace.cy - AP.light.y * faceH * 0.62,
+  } : null;
+  // 高光固定在颧骨（脸心略下），不再随 light.y 跑到眼镜上。
+  // 旧版中心 y≈855 正压镜框、半径 W*0.30 覆盖整个上半脸，把纯黑镜框洗成灰蓝（目检实锤）。
+  const apSpec = AP && apFace ? {
+    cx: apFace.cx + AP.light.x * faceW * 0.20,
+    cy: apFace.cy + faceH * 0.10,
+  } : null;
+  // 轮廓光只给面积最大的两层（脸 / 衣服），避免把 50 层全描一遍变成卡通线稿。
+  const apRimLayers = AP && AP.rim > 0
+    ? [...bodyLayersRaw].sort((a, b) => b.area - a.area).slice(0, 2)
+    : [];
+
   return (
     <svg viewBox={`0 0 ${W} ${H}`} width="100%" height="100%" style={{ display: 'block' }}>
       <defs>
@@ -302,6 +334,35 @@ export const FaceTraced: React.FC<{
             height={Math.max(1, H - lipMid + 2)}
           />
         </clipPath>
+        {AP && apLight && apFace && apSpec && (
+          <>
+            {/* 材质罩裁剪边界 = 所有身体层的并集。clipPath 在引用元素的 user space
+                里生效（E3-051），这里与 body layers 同在 headT 组内，光罩精确贴合
+                角色轮廓，不会溢出到透明背景上。 */}
+            <clipPath id={`${uid}-ap-clip`}>
+              {bodyLayersRaw.map((l) => <path key={`ap-clip-${l.id}`} d={l.d} />)}
+            </clipPath>
+            {/* 塑形以「加暗」为主、加白为辅：整屏叠 0.42 的白会把深色眼镜框
+                一起洗灰，而暗侧阴影对黑镜框几乎无感、对肤色却很有体积感。 */}
+            <linearGradient id={`${uid}-ap-diffuse`} gradientUnits="userSpaceOnUse"
+              x1={apLight.x1} y1={apLight.y1} x2={apLight.x2} y2={apLight.y2}>
+              <stop offset="0" stopColor={AP.highlight} stopOpacity={AP.diffuse * 0.34} />
+              <stop offset="0.46" stopColor={AP.highlight} stopOpacity="0" />
+              <stop offset="1" stopColor={AP.shadow} stopOpacity={AP.diffuse * 0.80} />
+            </linearGradient>
+            <radialGradient id={`${uid}-ap-ambient`} gradientUnits="userSpaceOnUse"
+              cx={apFace.cx} cy={apFace.cy} r={faceW * 0.78}>
+              <stop offset="0" stopColor={AP.shadow} stopOpacity="0" />
+              <stop offset="0.62" stopColor={AP.shadow} stopOpacity="0" />
+              <stop offset="1" stopColor={AP.shadow} stopOpacity={AP.ambient} />
+            </radialGradient>
+            <radialGradient id={`${uid}-ap-spec`} gradientUnits="userSpaceOnUse"
+              cx={apSpec.cx} cy={apSpec.cy} r={faceW * 0.20}>
+              <stop offset="0" stopColor={AP.highlight} stopOpacity={AP.specular} />
+              <stop offset="1" stopColor={AP.highlight} stopOpacity="0" />
+            </radialGradient>
+          </>
+        )}
       </defs>
 
       {!transparentBg && <rect x={0} y={0} width={W} height={H} fill={data.bg} />}
@@ -346,6 +407,24 @@ export const FaceTraced: React.FC<{
         {/* 下颌不再「裁剪后平移肤色层」重画：那样必然在裁切边缘（嘴高度）切断脸轮廓 →
             2× 放大就是两道台阶（老板 2026-10-28 指出「脸颊向外断层」）。
             下巴起伏改由 headT 里的 p.jaw 整体带动 + 下唇 lipDrop 表达。 */}
+        {/* Q3 材质罩：刻意放在嘴组之前，保证 gate_mouth 的色彩判据（E3-054）
+            不被光照污染 —— 嘴 / 牙 / 口腔保持原始色值，量具不会假红。 */}
+        {AP && apLight && (
+          <g clipPath={`url(#${uid}-ap-clip)`}>
+            <rect x={0} y={0} width={W} height={H} fill={`url(#${uid}-ap-diffuse)`} />
+            <rect x={0} y={0} width={W} height={H} fill={`url(#${uid}-ap-ambient)`} />
+            {AP.specular > 0 && (
+              <rect x={0} y={0} width={W} height={H} fill={`url(#${uid}-ap-spec)`} />
+            )}
+            {/* 整圈描边在放大图里会变成一条卡通白线（night 尤其明显）：
+                线宽减半 + 强度折半，保留轮廓提亮但不勾线稿。 */}
+            {apRimLayers.map((l) => (
+              <path key={`ap-rim-${l.id}`} d={l.d} fill="none" stroke={AP.rimColor}
+                strokeWidth={W * 0.0016} strokeLinejoin="round" opacity={AP.rim * 0.45} />
+            ))}
+          </g>
+        )}
+
         {/* ── 嘴 ──
             fullLips（noF 厚唇稿，2026-11-05）：原机制锚定**唇框顶**，对厚唇稿会把
             牙/口腔整块铺在上唇的位置（成片里像白胡子+黑胡子，老板实锤"嘴巴完全失败"）。

@@ -24,6 +24,7 @@
 import { NEUTRAL, VISEME, MOODS, POSE_RANGES } from './types';
 import type { Pose, Viseme } from './types';
 import { renderFaceSvg } from './svg';
+import type { SvgRenderOptions } from './svg';
 import type { CharData } from './FaceTraced';
 
 // ─────────────────────────────── 程序 schema ───────────────────────────────
@@ -156,6 +157,9 @@ export type WorldRenderOptions = {
     focus?: [number, number];
     zoom?: number;
   };
+  /** Q3 角色外观质感：透传给 renderFaceSvg。缺省 = 平面路径（golden 零漂移）。
+   *  与 fit 一样是渲染选项，不改 program —— 同一份故事可换灯位而不改数据。 */
+  appearance?: SvgRenderOptions['appearance'];
 };
 
 // ─────────────────────────────── 校验 ───────────────────────────────
@@ -538,7 +542,10 @@ export const renderWorldFrame = (
     const anchor = scene.anchors[slot.anchor];
     if (!anchor) throw new Error(`场景 ${scene.id} 缺少锚点 ${slot.anchor}`);
     const prefix = charIdPrefix(opts, shotIndex, castKey);
-    const face = renderFaceSvg(data, poseOf(st), { transparentBg: true, idPrefix: prefix });
+    const face = renderFaceSvg(data, poseOf(st), {
+      transparentBg: true, idPrefix: prefix,
+      ...(opts.appearance !== undefined ? { appearance: opts.appearance } : {}),
+    });
     const [ox, oy] = slot.offset ?? [0, 0];
     sceneSvg += `<g transform="translate(${num(anchor[0] + ox)} ${num(anchor[1] + oy)}) scale(${num(slot.scale, 4)})">`
       + faceBody(face) + `</g>`;

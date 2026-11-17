@@ -668,8 +668,8 @@ var require_react_dom = __commonJS({
       }
       try {
         __REACT_DEVTOOLS_GLOBAL_HOOK__.checkDCE(checkDCE);
-      } catch (err) {
-        console.error(err);
+      } catch (err2) {
+        console.error(err2);
       }
     }
     if (true) {
@@ -12304,7 +12304,8 @@ var FaceTraced = ({
   pose,
   data,
   transparentBg,
-  depth
+  depth,
+  appearance
 }) => {
   const p = pose;
   const [W, H] = data.canvas;
@@ -12407,6 +12408,22 @@ var FaceTraced = ({
   const lipHalf = FULL_LIPS ? Math.max(1, lipBot - lipMid) : 1;
   const llScale = FULL_LIPS ? Math.max(1, (0.55 * lipDropFL + 0.85 * lipHalf) / lipHalf) : 1;
   const uid = import_react.default.useId().replace(/:/g, "");
+  const AP = appearance;
+  const apFace = AP ? {
+    cx: (data.skinBox[0] + data.skinBox[2]) / 2,
+    cy: (data.skinBox[1] + data.skinBox[3]) / 2
+  } : null;
+  const apLight = AP && apFace ? {
+    x1: apFace.cx + AP.light.x * faceW * 0.62,
+    y1: apFace.cy + AP.light.y * faceH * 0.62,
+    x2: apFace.cx - AP.light.x * faceW * 0.62,
+    y2: apFace.cy - AP.light.y * faceH * 0.62
+  } : null;
+  const apSpec = AP && apFace ? {
+    cx: apFace.cx + AP.light.x * faceW * 0.2,
+    cy: apFace.cy + faceH * 0.1
+  } : null;
+  const apRimLayers = AP && AP.rim > 0 ? [...bodyLayersRaw].sort((a, b) => b.area - a.area).slice(0, 2) : [];
   return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: "100%", style: { display: "block" }, children: [
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("defs", { children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsx)("clipPath", { id: "fc-upper", children: /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: 0, y: 0, width: W, height: Math.max(0, lipMid) }) }),
@@ -12436,7 +12453,55 @@ var FaceTraced = ({
           width: W,
           height: Math.max(1, H - lipMid + 2)
         }
-      ) })
+      ) }),
+      AP && apLight && apFace && apSpec && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(import_jsx_runtime.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("clipPath", { id: `${uid}-ap-clip`, children: bodyLayersRaw.map((l) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)("path", { d: l.d }, `ap-clip-${l.id}`)) }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          "linearGradient",
+          {
+            id: `${uid}-ap-diffuse`,
+            gradientUnits: "userSpaceOnUse",
+            x1: apLight.x1,
+            y1: apLight.y1,
+            x2: apLight.x2,
+            y2: apLight.y2,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "0", stopColor: AP.highlight, stopOpacity: AP.diffuse * 0.34 }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "0.46", stopColor: AP.highlight, stopOpacity: "0" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "1", stopColor: AP.shadow, stopOpacity: AP.diffuse * 0.8 })
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          "radialGradient",
+          {
+            id: `${uid}-ap-ambient`,
+            gradientUnits: "userSpaceOnUse",
+            cx: apFace.cx,
+            cy: apFace.cy,
+            r: faceW * 0.78,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "0", stopColor: AP.shadow, stopOpacity: "0" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "0.62", stopColor: AP.shadow, stopOpacity: "0" }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "1", stopColor: AP.shadow, stopOpacity: AP.ambient })
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)(
+          "radialGradient",
+          {
+            id: `${uid}-ap-spec`,
+            gradientUnits: "userSpaceOnUse",
+            cx: apSpec.cx,
+            cy: apSpec.cy,
+            r: faceW * 0.2,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "0", stopColor: AP.highlight, stopOpacity: AP.specular }),
+              /* @__PURE__ */ (0, import_jsx_runtime.jsx)("stop", { offset: "1", stopColor: AP.highlight, stopOpacity: "0" })
+            ]
+          }
+        )
+      ] })
     ] }),
     !transparentBg && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: 0, y: 0, width: W, height: H, fill: data.bg }),
     /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("g", { transform: headT, children: [
@@ -12460,6 +12525,23 @@ var FaceTraced = ({
             opacity: 0.9
           },
           `nose-arc-${s}`
+        ))
+      ] }),
+      AP && apLight && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("g", { clipPath: `url(#${uid}-ap-clip)`, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: 0, y: 0, width: W, height: H, fill: `url(#${uid}-ap-diffuse)` }),
+        /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: 0, y: 0, width: W, height: H, fill: `url(#${uid}-ap-ambient)` }),
+        AP.specular > 0 && /* @__PURE__ */ (0, import_jsx_runtime.jsx)("rect", { x: 0, y: 0, width: W, height: H, fill: `url(#${uid}-ap-spec)` }),
+        apRimLayers.map((l) => /* @__PURE__ */ (0, import_jsx_runtime.jsx)(
+          "path",
+          {
+            d: l.d,
+            fill: "none",
+            stroke: AP.rimColor,
+            strokeWidth: W * 16e-4,
+            strokeLinejoin: "round",
+            opacity: AP.rim * 0.45
+          },
+          `ap-rim-${l.id}`
         ))
       ] }),
       (LIP || UPPER_LIP || LIP_LINE) && /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("g", { transform: `translate(${lipCx} ${lipTop}) scale(${wideK} 1) translate(${-lipCx} ${-lipTop})`, children: [
@@ -12550,7 +12632,109 @@ var FaceTraced = ({
   ] });
 };
 
+// ../anchor-core/src/appearance.ts
+var APPEARANCE_PRESETS = {
+  studio: {
+    version: 1,
+    light: { x: -0.6, y: -0.5 },
+    diffuse: 0.42,
+    ambient: 0.3,
+    specular: 0.34,
+    rim: 0.16
+  },
+  sunset: {
+    version: 1,
+    light: { x: 0.62, y: 0.1 },
+    diffuse: 0.54,
+    ambient: 0.26,
+    specular: 0.42,
+    rim: 0.22,
+    highlight: "#FFE2B0",
+    rimColor: "#FFD9A0",
+    shadow: "#241C22"
+  },
+  night: {
+    version: 1,
+    light: { x: 0.3, y: -0.7 },
+    diffuse: 0.3,
+    ambient: 0.46,
+    specular: 0.22,
+    rim: 0.28,
+    highlight: "#B9CFFF",
+    rimColor: "#9FB8FF",
+    shadow: "#0A0D18"
+  }
+};
+var isNum = (v) => typeof v === "number" && Number.isFinite(v);
+var isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
+var HEX_RE = /^#[0-9a-fA-F]{6}$/;
+var err = (path, code, message, fix) => ({ path, code, message, fix });
+var STRENGTH_KEYS = ["diffuse", "ambient", "specular", "rim"];
+var COLOR_KEYS = ["highlight", "shadow", "rimColor"];
+var ALLOWED = /* @__PURE__ */ new Set(["version", "light", ...STRENGTH_KEYS, ...COLOR_KEYS]);
+var validateAppearance = (a) => {
+  const e = [];
+  if (!isObj(a)) return { ok: false, errors: [err("$", "A001", "\u5916\u89C2\u53C2\u6570\u5FC5\u987B\u662F\u5BF9\u8C61", "\u4F20\u4E00\u4E2A AppearanceSpec \u6216\u9884\u8BBE\u540D\u5BF9\u5E94\u7684\u5BF9\u8C61")] };
+  if (a.version !== 1) e.push(err("$.version", "A002", "version \u5FC5\u987B\u4E3A 1", "\u586B 1"));
+  if (!isObj(a.light)) {
+    e.push(err("$.light", "A003", "light \u5FC5\u987B\u4E3A {x, y}", '\u4F8B\u5982 {"x":-0.6,"y":-0.5}'));
+  } else {
+    for (const k of ["x", "y"]) {
+      if (!isNum(a.light[k])) e.push(err(`$.light.${k}`, "A004", `light.${k} \u5FC5\u987B\u4E3A\u6570\u5B57`, "\u586B -1..1 \u4E4B\u95F4\u7684\u6709\u9650\u6570\u5B57"));
+      else if (a.light[k] < -1 || a.light[k] > 1) {
+        e.push(err(`$.light.${k}`, "A004", `light.${k} \u8D85\u51FA -1..1`, "\u628A\u65B9\u5411\u5F52\u4E00\u5316\u5230 -1..1"));
+      }
+    }
+  }
+  for (const k of STRENGTH_KEYS) {
+    if (!isNum(a[k])) e.push(err(`$.${k}`, "A005", `${k} \u5FC5\u987B\u4E3A\u6570\u5B57`, "\u586B 0..1 \u7684\u6709\u9650\u6570\u5B57"));
+    else if (a[k] < 0 || a[k] > 1) {
+      e.push(err(`$.${k}`, "A006", `${k} \u8D85\u51FA 0..1`, "\u6536\u8FDB 0..1"));
+    }
+  }
+  for (const k of COLOR_KEYS) {
+    if (a[k] !== void 0 && (typeof a[k] !== "string" || !HEX_RE.test(a[k]))) {
+      e.push(err(`$.${k}`, "A007", `${k} \u5FC5\u987B\u662F #RRGGBB`, '\u4F8B\u5982 "#FFE2B0"'));
+    }
+  }
+  for (const k of Object.keys(a)) {
+    if (!ALLOWED.has(k)) e.push(err(`$.${k}`, "A008", `\u672A\u77E5\u53C2\u6570 ${k}`, "\u53EA\u4F7F\u7528 AppearanceSpec \u91CC\u58F0\u660E\u7684\u5B57\u6BB5"));
+  }
+  if (STRENGTH_KEYS.every((k) => isNum(a[k]) && a[k] === 0)) {
+    e.push(err("$", "A009", "\u56DB\u9879\u5F3A\u5EA6\u5168\u4E3A 0\uFF0C\u7B49\u4E8E\u6CA1\u5F00\u6750\u8D28\uFF08\u9759\u9ED8\u65E0\u6548\uFF09", "\u81F3\u5C11\u7ED9 diffuse \u4E00\u4E2A\u6B63\u503C\uFF0C\u6216\u5E72\u8106\u4E0D\u4F20 appearance"));
+  }
+  return { ok: e.length === 0, errors: e };
+};
+var resolveAppearance = (a) => {
+  const v = validateAppearance(a);
+  if (!v.ok) throw new Error(`AppearanceSpec \u975E\u6CD5\uFF1A
+  ${v.errors.map((x) => `${x.code} ${x.path} ${x.message}`).join("\n  ")}`);
+  return {
+    version: 1,
+    light: { x: a.light.x, y: a.light.y },
+    diffuse: a.diffuse,
+    ambient: a.ambient,
+    specular: a.specular,
+    rim: a.rim,
+    highlight: a.highlight ?? "#FFFFFF",
+    shadow: a.shadow ?? "#161018",
+    rimColor: a.rimColor ?? "#FFF3D8"
+  };
+};
+var appearancePreset = (name) => {
+  const p = APPEARANCE_PRESETS[name];
+  return p ? JSON.parse(JSON.stringify(p)) : void 0;
+};
+
 // ../anchor-core/src/svg.ts
+var resolveOptAppearance = (a) => {
+  if (a === void 0) return void 0;
+  const spec = typeof a === "string" ? appearancePreset(a) : a;
+  if (!spec) {
+    throw new Error(`\u672A\u77E5\u5916\u89C2\u9884\u8BBE\uFF1A${a}\u3002\u53EF\u7528\uFF1A${Object.keys(APPEARANCE_PRESETS).join(" / ")}`);
+  }
+  return resolveAppearance(spec);
+};
 var uniquifySvgIds = (svg, prefix) => {
   const ids = /* @__PURE__ */ new Set();
   for (const m of svg.matchAll(/\bid="([^"]+)"/g)) ids.add(m[1]);
@@ -12564,12 +12748,15 @@ var uniquifySvgIds = (svg, prefix) => {
   return out;
 };
 var renderFaceSvg = (data, pose, opts = {}) => {
+  const ap = resolveOptAppearance(opts.appearance);
   const svg = (0, import_server.renderToStaticMarkup)(
     import_react2.default.createElement(FaceTraced, {
       pose,
       data,
       transparentBg: opts.transparentBg,
-      depth: opts.depth
+      depth: opts.depth,
+      // 不传 appearance 时 props 对象与旧版逐字段相同（零漂移由构造保证）
+      ...ap ? { appearance: ap } : {}
     })
   );
   return opts.idPrefix ? uniquifySvgIds(svg, opts.idPrefix) : svg;

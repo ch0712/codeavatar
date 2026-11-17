@@ -14,6 +14,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { FaceTraced, CHARS } from './FaceTraced';
 import type { CharData, CharKey } from './FaceTraced';
 import type { Pose } from './types';
+import { APPEARANCE_PRESETS, appearancePreset, resolveAppearance } from './appearance';
+import type { AppearanceSpec } from './appearance';
 
 export type SvgRenderOptions = {
   /** 不铺背景 rect（抠像/叠加用），与 FaceTraced 同义 */
@@ -22,6 +24,19 @@ export type SvgRenderOptions = {
   depth?: { gain?: number };
   /** 给 clipPath/mask 等文档级 id 加唯一前缀：同页多个 SVG 时必须给 */
   idPrefix?: string;
+  /** Q3 外观质感（2026-11-17）：传 AppearanceSpec 对象或预设名
+   *  （studio / sunset / night）。缺省 undefined = 平面路径，逐字节零漂移。 */
+  appearance?: AppearanceSpec | string;
+};
+
+/** 预设名 → 校验过的 spec；undefined 表示「不开材质」。 */
+const resolveOptAppearance = (a: SvgRenderOptions['appearance']): AppearanceSpec | undefined => {
+  if (a === undefined) return undefined;
+  const spec = typeof a === 'string' ? appearancePreset(a) : a;
+  if (!spec) {
+    throw new Error(`未知外观预设：${a}。可用：${Object.keys(APPEARANCE_PRESETS).join(' / ')}`);
+  }
+  return resolveAppearance(spec);
 };
 
 /** 把 SVG 里的 id 与 url(#id) 成对重命名，避免同页多实例解析到第一个 defs。
@@ -46,12 +61,15 @@ export const renderFaceSvg = (
   pose: Pose,
   opts: SvgRenderOptions = {},
 ): string => {
+  const ap = resolveOptAppearance(opts.appearance);
   const svg = renderToStaticMarkup(
     React.createElement(FaceTraced, {
       pose,
       data,
       transparentBg: opts.transparentBg,
       depth: opts.depth,
+      // 不传 appearance 时 props 对象与旧版逐字段相同（零漂移由构造保证）
+      ...(ap ? { appearance: ap } : {}),
     }),
   );
   return opts.idPrefix ? uniquifySvgIds(svg, opts.idPrefix) : svg;

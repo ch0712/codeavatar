@@ -450,7 +450,8 @@ renderWorldFrame(program, t, chars) -> SVG 字符串     ← 唯一纯函数
 | **P2 · Agent 接口** | CLI + MCP：`write_program` 返回结构校验 + 预览图 + 数字量具；`note` 机制让人在画面上指错，Agent 带图修；`diff` 看两个版本视觉后果 | talekit 写即返图 + notes.json、TopoTopo assert/explain/diff、Rev2D atomic ops | Agent 无人工看像素也能自检至少 5 类结构错误；一次「指错→修→复验」闭环可复现 |
 | **P3 · 叙事层做厚**（同日已做，盲评待执行） | 按 PSL 引入 shot/composition 分离、TPN 式并发事件、角色锁定、镜头预设库、多画幅/多语言变体；再考虑插值与音频 | PSL、DyCraft、talekit shots、animdsl camera/transition | ✅ 同一 program 出横/竖/方 × 中/英帧确定且身份一致；v0 golden 零漂移；目检无穿帮（见 §11.6）。⬜ 正式盲评未执行 |
 | **P4 · 场景层做厚**（2026-11-16 已做） | 受限图元扩到 `path/polygon/ellipse/use` + `defs` 渐变 / 可复用组件；`SceneProgram` 语义参数（mood + words + 参数化组件）编译降级到 `SceneDef` | The Scene Language (W/P)、Rev2D 可 diff 资产、talekit 写即返图 | ✅ v0 / v3 golden 零漂移；7 种图元被真实场景用到；19 类结构化错误注入自证；9 组三画幅无白边；目检不再是「一张脸 + 几条线」。见 §11.7。⬜ §9 P2 的 `write_program` 仍未覆盖世界 / 叙事层 |
-| **贯穿** | §17 的 Q1（音素对齐 / 协同发音 / `gate_sync` / 盲评）作为**角色层内部效果线**并行推进 | §17 | §17.7 口径 |
+| **Q3 · 角色外观质感**（2026-11-17 已做；属 §17 角色层效果线，**与 P 序列正交**） | `AppearanceSpec` 参数化方向光 / 环境暗角 / 局部高光 / 轮廓光；显式开关透传到同一个纯函数，`appearance` 缺省时 JSX 一行不增 | §17.3「矢量干净但塑料」的对账 | ✅ v4 12 帧 golden `drift=0`；35 项断言；三轮人工目检推翻前两版参数。见 §11.8。⬜ 只验 `no4`、正式盲评未执行 |
+| **贯穿** | §17 的 Q1（音素对齐 / 协同发音 / `gate_sync` / 盲评）与 Q3（外观质感）作为**角色层内部效果线**并行推进 | §17 | §17.7 口径 |
 
 **明确不排进路线**：训自己的视频生成模型、做通用入口画布、以 star 数当效果指标、
 为「守住零依赖」而拒绝能提升效果的后端。
@@ -715,12 +716,84 @@ PASS 19 类 SceneProgram 注入错误 + 9 类 world 新图元错误 + 坏输入�
 
 ---
 
+### 11.8 Q3 角色外观质感实测（2026-11-17）
+
+**为什么回到角色层**：§17.3 的对账结论是「矢量干净但塑料」——`FaceTraced.tsx`
+除了鼻子一个 `shadowHex` 椭圆，没有任何光照 / 材质 / 高光 / 轮廓系统。
+Q1 音素对齐线仍被硬卡住（`align_phonemes.py` / `gate_sync.py` / `words.json` /
+火山 TTS 凭据全缺，成片无音轨 `D-003`），没有声音就不能做同步，强行盲评违反
+`E5-063`。用户「急需回到角色优化」时选定**角色外观质感**，本轮只做这一层。
+
+**做法仍然服从根命题**：外观不是贴图、不是滤镜、不是一次性的 PS 结果，
+而是一份可 diff 的数值参数 `AppearanceSpec`（`light / diffuse / ambient /
+specular / rim` + 三个可选色），由 `resolveAppearance()` 校验并补齐默认色，
+经 `SvgRenderOptions.appearance` 透传到唯一渲染器：
+
+```text
+APPEARANCE_PRESETS（studio / sunset / night）   ← 一句名字就是一整套灯位
+        ↓ validateAppearance()  A001~A009，带 path/code/message/fix
+        ↓ renderFaceSvg() / renderWorldFrame()    ← 同一个纯函数，一行没换
+        ↓ SVG linearGradient + radialGradient + clipPath + path
+```
+
+四条硬约束：**① 显式开关**——`appearance` 缺省时 `FaceTraced` JSX 一行都不增，
+零漂移由构造保证而非靠回归碰运气；**② 不用 `fe*` 滤镜**——跨宿主光栅化
+口径不一会破坏同管线 parity（`E3-061`）；**③ 材质罩裁在 body layers 并集内**
+且放在嘴组之前，`gate_mouth` 的色彩判据（`E3-054`）不被光照污染；
+**④ 世界层透传**——同一份 `WorldProgram` 换灯位，不改 program 本身。
+
+**实测输出**（`node tools/appearance/verify_appearance.mjs`，35 项断言）：
+
+```text
+PASS  v4 12 帧世界帧逐字节等于既有 golden   | drift=0
+PASS  不传 与 appearance: undefined 逐字节一致（6 格）
+PASS  3 预设 × 6 口型确定性 / 预设名与 spec 对象等价
+PASS  换光源 / diffuse / ambient / specular / rim 都确实改变画面
+PASS  4 类材质 defs 全部生成且 url(#x) 可解析 | refs=4 base=0 missing=0
+PASS  材质罩在嘴组之前 / 既有 55 条 path 一条不改 / 嘴部关键色值原样
+PASS  A001~A009 注入自证 + 8 类坏输入不抛异常
+PASS  目检页 / 聚焦目检页同页 id 全局唯一 | 122 / 32 ids, dup=0
+```
+
+**发布包口径要与「渲染零漂移」分开**：重建 `packages/avatar-runtime/dist` 后
+3 个入口有真实变化（292 insertions / 101 deletions）——因为 `svg.ts` 直接引用
+`appearance.ts`，新运行时能力**本来就应该**进包，否则 npm 用户拿不到 `appearance`。
+`verify.mjs` 合规检查 PASS，且新增行里 `F0B781 / D99F6C / 555339 / 26221C /
+no4.json` 等角色资产特征**一个都没有**。因此本轮如实提交新 `dist`，不套用
+P1~P4 的「`git diff --stat -- dist` 为空」口径；`E3-070` 的三步仍必须跑，
+只是第三步的期望从「空」改为「变化可解释且无资产泄漏」。渲染 golden 仍是
+`drift=0`，两者不矛盾：**一个是产物基线，一个是发布包内容**。
+
+**三轮目检，前两版都被推翻**（`out/appearance/q3-zoom.png` →
+`q3-zoom-v2.png` → `q3-zoom-v3.png`）：
+
+| 版次 | 目检现象 | 根因 |
+|:--|:--|:--|
+| v1 | `night` 黑镜框变灰蓝、脸颊一圈卡通白线、`studio` 几乎看不出打光 | `apSpec` 中心按 `light.y * H` 偏移到 y≈855 正压镜框、半径 `W*0.30` 覆盖整个上半脸；`diffuse` 渐变两端按整张画布算落在画外，脸内只吃到 0.46 的透明 stop；`rim` 整圈描边线宽 `W*0.0032` + 亮色 |
+| v2 | 镜框与白线恢复，但 `sunset` 头发 / 镜框上沿泛出灰紫块 | `shadow: '#3A2540'` 是饱和紫，整屏叠加时在纯黑描摹层上照样显色 |
+| v3 | 深色细节干净、四列明暗冷暖可辨、无白线 / 溢出 / 断层、牙与口腔保持原色 | 光照几何收到 `skinBox` 尺度、高光固定颧骨、rim 线宽与强度减半、塑形改为「以加暗为主」、`shadow` 换中性深色 |
+
+**这是 §11.3 纪律的第四次实证**：机检 35 项全绿，人眼仍能一眼看出
+「镜框被洗白」和「轮廓变线稿」。「参数确实改变画面」这类断言只能证明
+**不是摆设**，证明不了**变好了**——两者之间隔着一整轮目检。
+
+**诚实边界**：只验了 `no4` 一个角色，其余 5 个角色与 `noF` 的 `fullLips`
+路径未逐一目检；**未做正式盲评**（登记 `D-036`）；世界层角色 `scale 0.42`、
+1920×1080 下脸只有几十像素，换灯位的差异主要体现在整体色温而不是五官细节，
+`demo/appearance.html` B 区已显式标注这一口径。`A001~A009` 只保证结构合法，
+不保证好看。启用材质后单帧 SVG 从 259 KB 增至 598 KB（clip 与 rim 复用 body
+path），属可接受的代价，未做体积优化。
+
+---
+
 ## 12. 诚实边界与风险
 
 ### 12.1 v0 证明了什么、没证明什么
 
 - **证明了**：角色 / 场景 / 叙事可以是同一份可 diff 程序；任意 `t` 确定性求值；
   三层共用一个渲染器；每帧可独立做 golden；这套抽象能被结构化校验。
+  Q3 进一步证明：**连「质感」都可以是挂在同一个纯函数上的可选数值参数**，
+  不需要第二个渲染器、不需要贴图或滤镜，也不动任何既有 golden（§11.8）。
 - **没证明**：画面好看、能讲复杂故事、能商用、Agent 能稳定写对 program。
   `animdsl` 的三次重写和 `talekit` 0★ 都在提醒：**「跑通」离「好看」还很远**。
 - 场景层是**受限但可扩展**的图元集合（v0 的 rect/circle/line/text + repeat，
